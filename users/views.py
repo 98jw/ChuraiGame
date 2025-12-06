@@ -4,6 +4,8 @@ from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_http_methods
 from django.core.serializers.json import DjangoJSONEncoder
 import json
+import os
+from django.conf import settings
 
 from .forms import SignupForm, CustomLoginForm
 # Game 모델이 users/models.py에 정의되어 있다고 가정합니다.
@@ -69,30 +71,18 @@ def delete_account_view(request):
 # --- 6. 메인 페이지 (Main View) ---
 @login_required(login_url='users:login')
 def main_view(request):
-    # DB에서 게임 데이터 가져오기
+    # JSON 파일에서 게임 데이터 가져오기
     try:
-        # 필요한 필드만 가져와서 최적화 (values 사용)
-        # 필드명은 실제 models.py의 Game 모델과 일치해야 합니다.
-        games_queryset = Game.objects.all().values('steam_appid', 'title', 'image_url', 'genre')
+        json_file_path = os.path.join(settings.BASE_DIR, 'users', 'steam_sale_dataset_fast.json')
         
-        # 쿼리셋을 리스트로 변환 (JSON 직렬화를 위해)
-        games_list = list(games_queryset)
-        
-        # 프론트엔드에서 사용할 키 이름으로 매핑 (선택 사항, 필요시 수정)
-        # 예: steam_appid -> game_id 로 변경해서 보내고 싶다면 아래처럼 처리
-        formatted_games = []
-        for g in games_list:
-            formatted_games.append({
-                'game_id': g.get('steam_appid'),
-                'title': g.get('title'),
-                'thumbnail': g.get('image_url'),
-                'genre': g.get('genre', 'Unknown'), # 장르가 없으면 Unknown
-                'original_price': 0, # 가격 정보가 DB에 없다면 기본값
-                'current_price': 0,
-                'discount_rate': 0
-            })
+        if os.path.exists(json_file_path):
+            with open(json_file_path, 'r', encoding='utf-8') as f:
+                games_data = json.load(f)
+        else:
+            games_data = []
+            print(f"파일을 찾을 수 없습니다: {json_file_path}")
 
-        games_json = json.dumps(formatted_games, cls=DjangoJSONEncoder)
+        games_json = json.dumps(games_data, cls=DjangoJSONEncoder)
 
     except Exception as e:
         print(f"게임 데이터를 불러오는 중 오류 발생: {e}")

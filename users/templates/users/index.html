@@ -31,28 +31,6 @@
 <script>
     const { createApp, ref, computed, onMounted, reactive } = Vue;
 
-    // --- MOCK DATA (Normally from DB) ---
-    const rawSaleData = [
-        { "game_id": "app1086940", "title": "Baldur's Gate 3", "current_price": 49500, "original_price": 66000, "discount_rate": 0.25, "thumbnail": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1086940/3dd81008e9c385caf68152450c22353f6a8abec9/capsule_231x87.jpg", "store_link": "https://store.steampowered.com/app/1086940/Baldurs_Gate_3/" },
-        { "game_id": "app1245620", "title": "Elden Ring", "current_price": 44800, "original_price": 64800, "discount_rate": 0.3, "thumbnail": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1245620/capsule_231x87.jpg", "store_link": "https://store.steampowered.com/app/1245620/Elden_Ring/" },
-        { "game_id": "app2679460", "title": "Metaphor: ReFantazio", "current_price": 39900, "original_price": 79800, "discount_rate": 0.5, "thumbnail": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/2679460/capsule_231x87.jpg", "store_link": "https://store.steampowered.com/app/2679460/Metaphor_ReFantazio/" },
-        { "game_id": "app1904540", "title": "Football Manager 2023", "current_price": 23600, "original_price": 59000, "discount_rate": 0.6, "thumbnail": "https://cdn.cloudflare.steamstatic.com/steam/apps/1904540/capsule_sm_120.jpg", "store_link": "https://store.steampowered.com/app/1904540/Football_Manager_2023/" },
-        { "game_id": "app524220", "title": "NieR:Automata™", "current_price": 15680, "original_price": 44800, "discount_rate": 0.65, "thumbnail": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/524220/capsule_231x87.jpg", "store_link": "https://store.steampowered.com/app/524220/NieRAutomata/" },
-        { "game_id": "app1332010", "title": "Stray", "current_price": 21000, "original_price": 35000, "discount_rate": 0.4, "thumbnail": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1332010/capsule_231x87.jpg", "store_link": "https://store.steampowered.com/app/1332010/Stray/" },
-        { "game_id": "app2369390", "title": "Far Cry® 6", "current_price": 13000, "original_price": 65000, "discount_rate": 0.8, "thumbnail": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/2369390/capsule_231x87.jpg", "store_link": "https://store.steampowered.com/app/2369390/Far_Cry_6/" },
-        { "game_id": "app2561580", "title": "Horizon Zero Dawn™ Remastered", "current_price": 35280, "original_price": 58800, "discount_rate": 0.4, "thumbnail": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/2561580/507f27b6be81658f406a42e269a2e4b065941ade/capsule_231x87.jpg", "store_link": "https://store.steampowered.com/app/2561580/Horizon_Zero_Dawn_Remastered/" },
-        { "game_id": "app1222730", "title": "STAR WARS™: Squadrons", "current_price": 2200, "original_price": 44000, "discount_rate": 0.95, "thumbnail": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1222730/capsule_231x87.jpg", "store_link": "https://store.steampowered.com/app/1222730/STAR_WARS_Squadrons/" },
-        { "game_id": "app1605220", "title": "Dune: Spice Wars", "current_price": 15120, "original_price": 30500, "discount_rate": 0.6, "thumbnail": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1605220/capsule_231x87.jpg", "store_link": "https://store.steampowered.com/app/1605220/Dune_Spice_Wars/" },
-        { "game_id": "app383870", "title": "Firewatch", "current_price": 2150, "original_price": 21000, "discount_rate": 0.9, "thumbnail": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/383870/4bede1250e3ec63295fa3f019311d4a30a1a4bce/capsule_231x87.jpg", "store_link": "https://store.steampowered.com/app/383870/Firewatch/" },
-        { "game_id": "app1196090", "title": "Scars Above", "current_price": 3040, "original_price": 30400, "discount_rate": 0.9, "thumbnail": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1196090/capsule_231x87.jpg", "store_link": "https://store.steampowered.com/app/1196090/Scars_Above/" },
-        { "game_id": "app2058180", "title": "Judgment", "current_price": 10440, "original_price": 34800, "discount_rate": 0.7, "thumbnail": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/2058180/capsule_231x87.jpg", "store_link": "https://store.steampowered.com/app/2058180/Judgment/" },
-        { "game_id": "app863550", "title": "HITMAN™ 2", "current_price": 24800, "original_price": 62000, "discount_rate": 0.6, "thumbnail": "https://cdn.cloudflare.steamstatic.com/steam/apps/863550/capsule_sm_120.jpg", "store_link": "https://store.steampowered.com/app/863550/HITMAN_2/" },
-        { "game_id": "app448510", "title": "Overcooked", "current_price": 3600, "original_price": 18000, "discount_rate": 0.8, "thumbnail": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/448510/capsule_231x87.jpg", "store_link": "https://store.steampowered.com/app/448510/Overcooked/" },
-        { "game_id": "app924150", "title": "Farm Together", "current_price": 4400, "original_price": 11000, "discount_rate": 0.6, "thumbnail": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/924150/capsule_231x87.jpg", "store_link": "https://store.steampowered.com/app/924150/" },
-        { "game_id": "app304390", "title": "FOR HONOR™", "current_price": 4950, "original_price": 16500, "discount_rate": 0.7, "thumbnail": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/304390/5b4909717c94e99511e459aad48cd2202e191046/capsule_231x87.jpg", "store_link": "https://store.steampowered.com/app/304390/FOR_HONOR/" },
-        { "game_id": "app2815270", "title": "The Sims™ 4 Lovestruck", "current_price": 22000, "original_price": 44000, "discount_rate": 0.5, "thumbnail": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/2815270/capsule_231x87.jpg", "store_link": "https://store.steampowered.com/app/2815270/" }
-    ];
-
     createApp({
         setup() {
             // State
@@ -93,12 +71,7 @@
                         matchScore: Math.floor(Math.random() * (99 - 70) + 70),
                     }));
                 } else {
-                    // Fallback to mock data if server data is empty
-                    games.value = rawSaleData.map(game => ({
-                        ...game,
-                        matchScore: Math.floor(Math.random() * (99 - 70) + 70),
-                        genre: "액션/RPG"
-                    }));
+                    console.log("No game data found.");
                 }
                 // Initialize Wishlist
                 try {

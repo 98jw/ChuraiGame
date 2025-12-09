@@ -41,6 +41,11 @@
             const games = ref([]);
             const wishlist = ref([]);
 
+            // RAWG Game Tabs State
+            const gameTab = ref('popular');
+            const rawgGames = ref([]);
+            const isLoadingGames = ref(false);
+
             // Community State
             const communityPosts = ref([]);
             const isWritingPost = ref(false);
@@ -81,9 +86,39 @@
                     console.error("Wishlist init failed", e);
                 }
 
+                // Load Default Tab Games
+                await loadGameTab('popular');
+
                 // Fetch Community Posts
                 await fetchPosts();
             });
+
+            const loadGameTab = async (tabName) => {
+                gameTab.value = tabName;
+                isLoadingGames.value = true;
+                rawgGames.value = [];
+
+                try {
+                    let url = '/games/api/popular/?limit=20';
+                    if (tabName === 'top-rated') {
+                        url = '/games/api/top-rated/?limit=20';
+                    } else if (tabName === 'new-releases') {
+                        url = '/games/api/new-releases/?limit=20';
+                    } else if (tabName === 'trending') {
+                        url = '/games/api/trending/?limit=20';
+                    }
+
+                    const response = await fetch(url);
+                    const data = await response.json();
+                    if (data.games) {
+                        rawgGames.value = data.games;
+                    }
+                } catch (e) {
+                    console.error("Failed to fetch games for tab " + tabName, e);
+                } finally {
+                    isLoadingGames.value = false;
+                }
+            };
 
             // --- Computed ---
             const popularGames = computed(() => games.value.slice(0, 5));
@@ -267,6 +302,10 @@
                 sortedSaleGames,
                 sortBy,
                 wishlist,
+                gameTab,
+                rawgGames,
+                isLoadingGames,
+                loadGameTab,
                 communityPosts,
                 isWritingPost,
                 communityCategory,

@@ -1,0 +1,194 @@
+<!-- Discover Tab (RAWG API Games) -->
+<div v-if="currentTab === 'discover'" class="space-y-12">
+
+    <!-- Page Header -->
+    <div class="bg-gradient-to-r from-blue-600 to-purple-600 p-8 rounded-[2.5rem] shadow-lg relative overflow-hidden">
+        <div class="relative z-10">
+            <h2 class="text-3xl font-bold text-white leading-tight mb-2">
+                🌟 새로운 게임 발견하기
+            </h2>
+            <p class="text-white/90 mb-0">RAWG 데이터베이스에서 최고의 게임들을 찾아보세요</p>
+        </div>
+        <div class="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16"></div>
+    </div>
+
+    <!-- Popular Games Section (RAWG API) -->
+    <div>
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-2xl font-bold flex items-center gap-2">
+                <i class="ph-fill ph-fire text-red-500 text-3xl"></i> 인기 게임
+                <span class="text-sm text-gray-400 font-normal ml-2">가장 많이 플레이하는 게임</span>
+            </h3>
+        </div>
+        <div v-if="popularGamesRAWG.length > 0"
+            class="flex overflow-x-auto gap-5 pb-6 -mx-4 px-4 sm:mx-0 sm:px-0 no-scrollbar">
+            <div v-for="game in popularGamesRAWG" :key="game.rawg_id" class="shrink-0 w-64 group cursor-pointer"
+                @click="openRawgGame(game)">
+                <div class="relative rounded-2xl overflow-hidden shadow-lg aspect-[16/9] mb-3">
+                    <img :src="game.image_url || 'https://via.placeholder.com/460x215?text=No+Image'"
+                        class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                        @error="handleImageError">
+                    <div
+                        class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+                    </div>
+                    <div class="absolute top-3 right-3 bg-black/70 backdrop-blur-sm px-2 py-1 rounded-lg">
+                        <span class="text-white text-xs font-bold">⭐ {% verbatim %}{{ game.rating }}{% endverbatim
+                            %}</span>
+                    </div>
+                    <div v-if="game.added"
+                        class="absolute bottom-3 left-3 bg-red-500/90 backdrop-blur-sm px-3 py-1 rounded-lg">
+                        <span class="text-white text-xs font-bold">🔥 {% verbatim %}{{ formatNumber(game.added) }}{%
+                            endverbatim %} users</span>
+                    </div>
+                </div>
+                <h4 class="font-bold text-gray-800 truncate mb-1">{% verbatim %}{{ game.title }}{% endverbatim %}</h4>
+                <p class="text-sm text-gray-500">{% verbatim %}{{ game.genres ? game.genres.slice(0, 2).join(', ') :
+                    '게임' }}{% endverbatim %}</p>
+            </div>
+        </div>
+        <div v-else class="text-center py-20 text-gray-400">
+            <div class="flex flex-col items-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+                <p class="text-lg">인기 게임을 불러오는 중...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Rated Games Section -->
+    <div>
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-2xl font-bold flex items-center gap-2">
+                <i class="ph-fill ph-star text-yellow-500 text-3xl"></i> 평점 높은 게임
+                <span class="text-sm text-gray-400 font-normal ml-2">유저들이 가장 사랑하는 게임</span>
+            </h3>
+        </div>
+        <div v-if="topRatedGamesRAWG.length > 0" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            <div v-for="game in topRatedGamesRAWG.slice(0, 8)" :key="game.rawg_id"
+                class="group cursor-pointer bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-2xl transition-all"
+                @click="openRawgGame(game)">
+                <div class="relative aspect-[3/4] overflow-hidden">
+                    <img :src="game.image_url || 'https://via.placeholder.com/300x400?text=No+Image'"
+                        class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                        @error="handleImageError">
+                    <div
+                        class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div class="absolute bottom-3 left-3 right-3">
+                            <div class="flex items-center gap-2 mb-2">
+                                <span class="text-yellow-400 text-lg font-bold">⭐ {% verbatim %}{{ game.rating }}{%
+                                    endverbatim %}</span>
+                                <span v-if="game.metacritic"
+                                    class="bg-green-500 px-2 py-1 rounded text-white text-xs font-bold">🏆 {% verbatim
+                                    %}{{ game.metacritic }}{% endverbatim %}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-3">
+                    <h4 class="font-bold text-gray-800 text-sm truncate">{% verbatim %}{{ game.title}}{% endverbatim %}
+                    </h4>
+                    <p class="text-xs text-gray-500 mt-1">{% verbatim %}{{ game.genres ? game.genres[0] : '' }}{%
+                        endverbatim %}</p>
+                </div>
+            </div>
+        </div>
+        <div v-else class="text-center py-20 text-gray-400">
+            <div class="flex flex-col items-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-600 mb-4"></div>
+                <p class="text-lg">평점 높은 게임을 불러오는 중...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Trending Games (Metacritic) -->
+    <div>
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-2xl font-bold flex items-center gap-2">
+                <i class="ph-fill ph-trophy text-green-500 text-3xl"></i> 트렌딩 게임
+                <span class="text-sm text-gray-400 font-normal ml-2">평론가들이 인정한 명작</span>
+            </h3>
+        </div>
+        <div v-if="trendingGamesRAWG.length > 0"
+            class="flex overflow-x-auto gap-6 pb-6 -mx-4 px-4 sm:mx-0 sm:px-0 no-scrollbar">
+            <div v-for="game in trendingGamesRAWG" :key="game.rawg_id"
+                class="shrink-0 w-80 group cursor-pointer bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all"
+                @click="openRawgGame(game)">
+                <div class="relative aspect-video overflow-hidden">
+                    <img :src="game.image_url || 'https://via.placeholder.com/460x215?text=No+Image'"
+                        class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                        @error="handleImageError">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent">
+                        <div class="absolute bottom-4 left-4 right-4">
+                            <div class="flex items-center gap-2 mb-2">
+                                <span v-if="game.metacritic"
+                                    class="bg-green-500 px-3 py-1.5 rounded-lg text-white text-sm font-bold">
+                                    🏆 {% verbatim %}{{ game.metacritic }}{% endverbatim %}
+                                </span>
+                                <span class="bg-yellow-500 px-3 py-1.5 rounded-lg text-white text-sm font-bold">
+                                    ⭐ {% verbatim %}{{ game.rating }}{% endverbatim %}
+                                </span>
+                            </div>
+                            <h4 class="text-white font-bold text-base line-clamp-2">{% verbatim %}{{ game.title }}{%
+                                endverbatim %}</h4>
+                            <p class="text-white/80 text-xs mt-1">{% verbatim %}{{ game.genres ? game.genres.join(' · ')
+                                : '' }}{% endverbatim %}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div v-else class="text-center py-20 text-gray-400">
+            <div class="flex flex-col items-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mb-4"></div>
+                <p class="text-lg">트렌딩 게임을 불러오는 중...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Releases -->
+    <div>
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-2xl font-bold flex items-center gap-2">
+                <i class="ph-fill ph-sparkle text-purple-500 text-3xl"></i> 신작 게임
+                <span class="text-sm text-gray-400 font-normal ml-2">최신 출시작</span>
+            </h3>
+        </div>
+        <div v-if="newReleasesRAWG.length > 0" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div v-for="game in newReleasesRAWG.slice(0, 6)" :key="game.rawg_id"
+                class="group cursor-pointer bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-2xl transition-all"
+                @click="openRawgGame(game)">
+                <div class="flex">
+                    <div class="w-2/5 relative">
+                        <img :src="game.image_url || 'https://via.placeholder.com/300x400?text=No+Image'"
+                            class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                            @error="handleImageError">
+                    </div>
+                    <div class="w-3/5 p-5 flex flex-col justify-center">
+                        <div class="flex items-center gap-2 mb-3">
+                            <span v-if="game.released"
+                                class="bg-purple-100 text-purple-700 px-3 py-1 rounded-lg text-xs font-bold">
+                                📅 {% verbatim %}{{ game.released }}{% endverbatim %}
+                            </span>
+                        </div>
+                        <h4 class="font-bold text-gray-800 mb-2 text-base line-clamp-2">{% verbatim %}{{ game.title }}{%
+                            endverbatim %}</h4>
+                        <div class="flex items-center gap-3 text-sm mb-2">
+                            <span v-if="game.rating" class="text-yellow-600 font-bold">⭐ {% verbatim %}{{ game.rating
+                                }}{% endverbatim %}</span>
+                            <span v-if="game.metacritic" class="text-green-600 font-bold">🏆 {% verbatim %}{{
+                                game.metacritic }}{% endverbatim %}</span>
+                        </div>
+                        <p v-if="game.genres" class="text-xs text-gray-500 line-clamp-2">{% verbatim %}{{
+                            game.genres.join(', ') }}{% endverbatim %}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div v-else class="text-center py-20 text-gray-400">
+            <div class="flex flex-col items-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mb-4"></div>
+                <p class="text-lg">신작 게임을 불러오는 중...</p>
+            </div>
+        </div>
+    </div>
+
+</div>

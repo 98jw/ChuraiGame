@@ -16,19 +16,71 @@
         </div>
     </div>
 
-    <!-- Popular Section -->
+    <!-- Game Discovery Section -->
     <div>
-        <h3 class="text-xl font-bold mb-6 flex items-center gap-2">
-            <i class="ph-fill ph-fire text-red-500"></i> 요즘 뜨는 게임
-        </h3>
-        <div class="flex overflow-x-auto gap-5 pb-6 -mx-4 px-4 sm:mx-0 sm:px-0 no-scrollbar">
-            <div v-for="game in popularGames" :key="game.game_id" class="shrink-0 w-64 group cursor-pointer">
-                <div class="relative rounded-2xl overflow-hidden shadow-md aspect-[16/9] mb-3">
-                    <img :src="game.thumbnail"
-                        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
+            <h3 class="text-xl font-bold flex items-center gap-2">
+                <i class="ph-fill ph-compass text-blue-500"></i> 게임 둘러보기
+            </h3>
+
+            <!-- Tabs -->
+            <div class="flex bg-gray-100 p-1 rounded-xl self-start sm:self-auto">
+                <button @click="loadGameTab('popular')"
+                    :class="{'bg-white shadow-sm text-blue-600': gameTab === 'popular', 'text-gray-500 hover:text-gray-700': gameTab !== 'popular'}"
+                    class="px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap">
+                    요즘 뜨는
+                </button>
+                <button @click="loadGameTab('top-rated')"
+                    :class="{'bg-white shadow-sm text-blue-600': gameTab === 'top-rated', 'text-gray-500 hover:text-gray-700': gameTab !== 'top-rated'}"
+                    class="px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap">
+                    평점 높은
+                </button>
+                <button @click="loadGameTab('new-releases')"
+                    :class="{'bg-white shadow-sm text-blue-600': gameTab === 'new-releases', 'text-gray-500 hover:text-gray-700': gameTab !== 'new-releases'}"
+                    class="px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap">
+                    신작 게임
+                </button>
+            </div>
+        </div>
+
+        <!-- content -->
+        <div class="relative min-h-[300px]">
+            <!-- Loading -->
+            <div v-if="isLoadingGames"
+                class="absolute inset-0 flex items-center justify-center z-10 bg-white/50 backdrop-blur-sm rounded-xl">
+                <div class="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+
+            <!-- List -->
+            <div class="flex overflow-x-auto gap-5 pb-6 -mx-4 px-4 sm:mx-0 sm:px-0 no-scrollbar">
+                <a v-for="game in rawgGames" :key="game.rawg_id" :href="`/games/${game.rawg_id}/`"
+                    class="shrink-0 w-64 group cursor-pointer transition-opacity duration-200"
+                    :class="{'opacity-50': isLoadingGames}">
+                    <div class="relative rounded-2xl overflow-hidden shadow-md aspect-[16/9] mb-3 bg-gray-200">
+                        <img :src="game.image_url"
+                            class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                            @error="handleImageError" loading="lazy">
+                        <div
+                            class="absolute top-2 right-2 bg-black/60 backdrop-blur-md text-white px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1">
+                            <i class="ph-fill ph-star text-yellow-400"></i>
+                            {% verbatim %}{{ game.rating }}{% endverbatim %}
+                        </div>
+                    </div>
+                    <h4 class="font-bold text-gray-800 truncate">{% verbatim %}{{ game.title }}{% endverbatim %}</h4>
+                    <div class="flex items-center gap-2 text-sm text-gray-500">
+                        <span>{% verbatim %}{{ game.released ? game.released.split('-')[0] : 'TBA' }}
+                            {% endverbatim %}</span>
+                        <span v-if="game.genres && game.genres.length > 0">{% verbatim %}{{ game.genres[0] }}
+                            {% endverbatim %}</span>
+                    </div>
+                </a>
+
+                <!-- Empty State -->
+                <div v-if="!isLoadingGames && rawgGames.length === 0"
+                    class="w-full shrink-0 flex flex-col items-center justify-center py-12 text-gray-400">
+                    <i class="ph ph-ghost text-4xl mb-2"></i>
+                    <p>게임 데이터를 불러올 수 없습니다.</p>
                 </div>
-                <h4 class="font-bold text-gray-800 truncate">{% verbatim %}{{ game.title }}{% endverbatim %}</h4>
-                <p class="text-sm text-gray-500">{% verbatim %}{{ game.genre || '액션' }}{% endverbatim %}</p>
             </div>
         </div>
     </div>

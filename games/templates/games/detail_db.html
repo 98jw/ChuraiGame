@@ -1,0 +1,515 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div id="gameDetailApp" class="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+    <!-- Back Button -->
+    <a href="/" class="inline-flex items-center text-gray-500 hover:text-gray-900 mb-6 transition-colors">
+        <i class="ph-bold ph-arrow-left mr-2"></i> 메인으로 돌아가기
+    </a>
+
+    <div class="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden">
+        <!-- Game Header with Background -->
+        <div class="relative h-96 bg-gray-900">
+            <!-- 배경 이미지: DB에 있으면 사용, 없으면 JS로 RAWG에서 가져옴 -->
+            {% if game.background_image %}
+            <img id="headerImage" src="{{ game.background_image }}" alt="{{ game.title }}"
+                class="w-full h-full object-cover opacity-50">
+            {% elif game.image_url %}
+            <img id="headerImage" src="{{ game.image_url }}" alt="{{ game.title }}"
+                class="w-full h-full object-cover opacity-60">
+            {% else %}
+            <img id="headerImage" src="" alt="{{ game.title }}" class="w-full h-full object-cover opacity-50 hidden">
+            <div id="headerPlaceholder" class="w-full h-full bg-gradient-to-br from-gray-800 to-gray-900 animate-pulse">
+            </div>
+            {% endif %}
+            <div class="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent"></div>
+            <div class="absolute bottom-0 left-0 w-full p-8 sm:p-12">
+                <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-6">
+                    <div class="flex-1">
+                        <div class="flex flex-wrap items-center gap-3 mb-4" id="badgeContainer">
+                            <!-- 장르 배지: DB에 있으면 사용, 없으면 JS로 업데이트 -->
+                            <span id="genreBadge"
+                                class="inline-block px-4 py-1.5 bg-gradient-to-r from-blue-600 to-blue-500 text-white text-xs font-bold rounded-full shadow-lg shadow-blue-900/50">
+                                {% if game.genre and game.genre != '게임' and game.genre != 'Unknown' %}
+                                {{ game.genre }}
+                                {% else %}
+                                <span class="flex items-center gap-1">
+                                    <div
+                                        class="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin">
+                                    </div>
+                                    로딩중
+                                </span>
+                                {% endif %}
+                            </span>
+                            {% if game.metacritic_score %}
+                            <span
+                                class="inline-block px-4 py-1.5 bg-gradient-to-r from-green-600 to-green-500 text-white text-xs font-bold rounded-full shadow-lg">
+                                <i class="ph-fill ph-trophy mr-1"></i> {{ game.metacritic_score }}
+                            </span>
+                            {% endif %}
+                            <!-- RAWG 메타크리틱 (DB에 없을 경우 JS로 추가) -->
+                            <span id="rawgMetacriticBadge"
+                                class="hidden inline-block px-4 py-1.5 bg-gradient-to-r from-green-600 to-green-500 text-white text-xs font-bold rounded-full shadow-lg">
+                                <i class="ph-fill ph-trophy mr-1"></i> <span id="rawgMetacriticValue"></span>
+                            </span>
+                        </div>
+                        <h1 class="text-4xl sm:text-5xl font-black text-white mb-3 tracking-tight drop-shadow-2xl">
+                            {{ game.title }}
+                        </h1>
+                        <div class="flex items-center gap-4 text-gray-300 text-sm font-medium flex-wrap">
+                            <span class="flex items-center gap-1"><i class="ph-fill ph-star text-yellow-400"></i>
+                                {{ game.rating_set.count }}개의 평가</span>
+                            <!-- RAWG 평점 (JS로 추가) -->
+                            <span id="rawgRating" class="hidden flex items-center gap-1">
+                                <i class="ph-fill ph-star text-yellow-400"></i>
+                                <span id="rawgRatingValue"></span>/5 (RAWG)
+                            </span>
+                            {% if game.steam_appid %}
+                            <span class="flex items-center gap-1"><i class="ph-fill ph-game-controller"></i> Steam
+                                AppID: {{ game.steam_appid }}</span>
+                            {% endif %}
+                            <!-- 출시일 (JS로 추가) -->
+                            <span id="releasedDate" class="hidden flex items-center gap-1">
+                                <i class="ph-fill ph-calendar"></i>
+                                <span id="releasedValue"></span>
+                            </span>
+                        </div>
+                    </div>
+                    <div class="flex gap-3">
+                        {% if game.steam_appid %}
+                        <a href="https://store.steampowered.com/app/{{ game.steam_appid }}" target="_blank"
+                            class="px-6 py-3 bg-[#171A21] hover:bg-[#2a2d33] text-white rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg hover:shadow-xl active:scale-95">
+                            <i class="ph-fill ph-steam-logo text-xl"></i>
+                            Steam에서 보기
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Content -->
+        <div class="p-8 sm:p-12 space-y-12">
+
+            <!-- Screenshots Gallery -->
+            {% if screenshots %}
+            <div id="screenshotsSection">
+                <h3 class="text-2xl font-bold mb-6 flex items-center gap-2">
+                    <i class="ph-fill ph-images text-blue-600"></i>
+                    스크린샷
+                </h3>
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4" id="screenshotsGrid">
+                    {% for screenshot in screenshots %}
+                    <div
+                        class="group relative aspect-video rounded-xl overflow-hidden bg-gray-100 cursor-pointer hover:ring-4 hover:ring-blue-500 transition-all">
+                        <img src="{{ screenshot.image_url }}" alt="스크린샷"
+                            class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                            onclick="openImageModal('{{ screenshot.image_url }}')">
+                        <div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors"></div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% else %}
+            <!-- 스크린샷 없을 경우 RAWG에서 로딩 -->
+            <div id="screenshotsSection">
+                <h3 class="text-2xl font-bold mb-6 flex items-center gap-2">
+                    <i class="ph-fill ph-images text-blue-600"></i>
+                    스크린샷
+                    <div id="screenshotsLoader"
+                        class="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin ml-2">
+                    </div>
+                </h3>
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4" id="screenshotsGrid">
+                    <!-- JS로 채워짐 -->
+                    <div class="aspect-video bg-gray-200 rounded-xl animate-pulse"></div>
+                    <div class="aspect-video bg-gray-200 rounded-xl animate-pulse"></div>
+                    <div class="aspect-video bg-gray-200 rounded-xl animate-pulse"></div>
+                    <div class="aspect-video bg-gray-200 rounded-xl animate-pulse"></div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Trailers -->
+            {% if trailers %}
+            <div>
+                <h3 class="text-2xl font-bold mb-6 flex items-center gap-2">
+                    <i class="ph-fill ph-play-circle text-blue-600"></i>
+                    트레일러 & 영상
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {% for trailer in trailers %}
+                    <div
+                        class="bg-gray-50 rounded-xl overflow-hidden border border-gray-200 hover:border-blue-300 transition-colors">
+                        <video controls class="w-full aspect-video bg-black" poster="{{ trailer.preview_url }}">
+                            <source src="{{ trailer.data_max }}" type="video/mp4">
+                            <source src="{{ trailer.data_480 }}" type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>
+                        <div class="p-4">
+                            <p class="font-semibold text-gray-800">{{ trailer.name }}</p>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Main Content Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-12">
+                <!-- Left: Description & Reviews -->
+                <div class="lg:col-span-2 space-y-10">
+
+                    <!-- Game Description -->
+                    {% if game.description %}
+                    <div id="descriptionSection">
+                        <h3 class="text-2xl font-bold mb-4 flex items-center gap-2">
+                            <i class="ph-fill ph-book-open text-blue-600"></i>
+                            게임 소개
+                        </h3>
+                        <div id="descriptionContent"
+                            class="prose prose-sm max-w-none text-gray-600 leading-relaxed bg-gray-50 rounded-xl p-6 border border-gray-100">
+                            {{ game.description|linebreaks }}
+                        </div>
+                    </div>
+                    {% else %}
+                    <!-- 설명 없을 경우 RAWG에서 로딩 -->
+                    <div id="descriptionSection">
+                        <h3 class="text-2xl font-bold mb-4 flex items-center gap-2">
+                            <i class="ph-fill ph-book-open text-blue-600"></i>
+                            게임 소개
+                            <div id="descriptionLoader"
+                                class="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin ml-2">
+                            </div>
+                        </h3>
+                        <div id="descriptionContent"
+                            class="prose prose-sm max-w-none text-gray-600 leading-relaxed bg-gray-50 rounded-xl p-6 border border-gray-100">
+                            <div class="h-4 bg-gray-200 rounded w-3/4 mb-2 animate-pulse"></div>
+                            <div class="h-4 bg-gray-200 rounded w-full mb-2 animate-pulse"></div>
+                            <div class="h-4 bg-gray-200 rounded w-5/6 animate-pulse"></div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- My Review Form -->
+                    <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-100">
+                        <h3 class="text-lg font-bold mb-4 flex items-center gap-2">
+                            <i class="ph-fill ph-pencil-simple text-blue-600"></i>
+                            {{ my_review|yesno:"리뷰 수정하기,리뷰 작성하기" }}
+                        </h3>
+                        <form method="POST" class="space-y-4">
+                            {% csrf_token %}
+                            <div>
+                                <label class="block text-xs font-bold text-gray-700 mb-2">별점</label>
+                                <div class="flex gap-2">
+                                    {% for i in "12345" %}
+                                    <label class="cursor-pointer group">
+                                        <input type="radio" name="score" value="{{ forloop.counter }}"
+                                            class="hidden peer" {% if my_review and
+                                            forloop.counter|floatformat:0==my_review.score|floatformat:0 %}checked{%
+                                            endif %} required>
+                                        <i
+                                            class="ph-fill ph-star text-3xl text-gray-300 peer-checked:text-yellow-400 group-hover:text-yellow-300 transition-colors"></i>
+                                    </label>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-700 mb-2">코멘트</label>
+                                <textarea name="content" rows="3" placeholder="이 게임에 대한 솔직한 평가를 남겨주세요."
+                                    class="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all resize-none text-sm">{{ my_review.content|default:'' }}</textarea>
+                            </div>
+                            <div class="flex justify-end">
+                                <button type="submit"
+                                    class="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-200 transition-all active:scale-95">
+                                    등록하기
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Review List -->
+                    <div>
+                        <h3 class="text-xl font-bold mb-6">유저 리뷰 <span class="text-blue-600">{{ reviews.count }}</span>
+                        </h3>
+                        <div class="space-y-6">
+                            {% for review in reviews %}
+                            <div class="flex gap-4 pb-6 border-b border-gray-100 last:border-0">
+                                <div class="shrink-0">
+                                    <div
+                                        class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center overflow-hidden">
+                                        <i class="ph-fill ph-user text-white"></i>
+                                    </div>
+                                </div>
+                                <div class="flex-1">
+                                    <div class="flex items-center justify-between mb-1">
+                                        <span class="font-bold text-gray-900">{{ review.user.nickname }}</span>
+                                        <span class="text-xs text-gray-400">{{ review.updated_at|date:"Y.m.d" }}</span>
+                                    </div>
+                                    <div class="flex items-center gap-1 mb-2">
+                                        {% for i in "12345" %}
+                                        {% if forloop.counter <= review.score %} <i
+                                            class="ph-fill ph-star text-yellow-400 text-sm"></i>
+                                            {% else %}
+                                            <i class="ph-fill ph-star text-gray-200 text-sm"></i>
+                                            {% endif %}
+                                            {% endfor %}
+                                    </div>
+                                    <p class="text-gray-600 text-sm leading-relaxed">{{ review.content }}</p>
+                                </div>
+                            </div>
+                            {% empty %}
+                            <div class="text-center py-12 text-gray-400">
+                                <i class="ph-duotone ph-chat-teardrop-text text-4xl mb-3"></i>
+                                <p>아직 작성된 리뷰가 없습니다.<br>첫 번째 리뷰어가 되어보세요!</p>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right: Info Sidebar -->
+                <div class="space-y-6">
+                    <div
+                        class="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-6 border border-gray-200 sticky top-6">
+                        <h3 class="font-bold text-gray-900 mb-4 flex items-center gap-2">
+                            <i class="ph-fill ph-info text-blue-600"></i>
+                            게임 정보
+                        </h3>
+                        <dl class="space-y-3 text-sm" id="gameInfoList">
+                            <div class="flex justify-between items-start">
+                                <dt class="text-gray-500 font-medium">장르</dt>
+                                <dd class="font-bold text-gray-900 text-right" id="sidebarGenre">{{ game.genre }}</dd>
+                            </div>
+                            {% if game.metacritic_score %}
+                            <div class="flex justify-between items-start">
+                                <dt class="text-gray-500 font-medium">메타크리틱</dt>
+                                <dd class="font-bold text-green-600 text-right">{{ game.metacritic_score }}/100</dd>
+                            </div>
+                            {% endif %}
+                            <!-- RAWG 메타크리틱 (JS로 추가) -->
+                            <div id="sidebarMetacritic" class="hidden flex justify-between items-start">
+                                <dt class="text-gray-500 font-medium">메타크리틱</dt>
+                                <dd class="font-bold text-green-600 text-right"><span
+                                        id="sidebarMetacriticValue"></span>/100</dd>
+                            </div>
+                            {% if game.rawg_id %}
+                            <div class="flex justify-between items-start">
+                                <dt class="text-gray-500 font-medium">RAWG ID</dt>
+                                <dd class="font-medium text-gray-600 text-right">
+                                    <a href="https://rawg.io/games/{{ game.rawg_id }}" target="_blank"
+                                        class="hover:text-blue-600 transition-colors">
+                                        {{ game.rawg_id }} <i class="ph-bold ph-arrow-square-out text-xs"></i>
+                                    </a>
+                                </dd>
+                            </div>
+                            {% endif %}
+                            <div class="flex justify-between items-start">
+                                <dt class="text-gray-500 font-medium">Steam AppID</dt>
+                                <dd class="font-medium text-gray-600 text-right">{{ game.steam_appid }}</dd>
+                            </div>
+                            <!-- 개발사/퍼블리셔 (JS로 추가) -->
+                            <div id="sidebarDeveloper" class="hidden flex justify-between items-start">
+                                <dt class="text-gray-500 font-medium">개발사</dt>
+                                <dd class="font-medium text-gray-600 text-right" id="sidebarDeveloperValue"></dd>
+                            </div>
+                            <div id="sidebarPublisher" class="hidden flex justify-between items-start">
+                                <dt class="text-gray-500 font-medium">퍼블리셔</dt>
+                                <dd class="font-medium text-gray-600 text-right" id="sidebarPublisherValue"></dd>
+                            </div>
+                        </dl>
+
+                        <div id="screenshotStats"
+                            class="{% if not screenshots %}hidden{% endif %} mt-6 pt-6 border-t border-gray-200">
+                            <div class="grid grid-cols-2 gap-4 text-center">
+                                <div>
+                                    <div class="text-2xl font-black text-blue-600" id="screenshotCount">{{
+                                        screenshots.count }}</div>
+                                    <div class="text-xs text-gray-500 font-medium">스크린샷</div>
+                                </div>
+                                {% if trailers.count > 0 %}
+                                <div>
+                                    <div class="text-2xl font-black text-purple-600">{{ trailers.count }}</div>
+                                    <div class="text-xs text-gray-500 font-medium">영상</div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Image Modal -->
+<div id="imageModal" class="fixed inset-0 bg-black/90 z-50 hidden items-center justify-center p-4"
+    onclick="closeImageModal()">
+    <div class="relative max-w-6xl max-h-[90vh]">
+        <button onclick="closeImageModal()"
+            class="absolute -top-12 right-0 text-white hover:text-gray-300 transition-colors">
+            <i class="ph-bold ph-x text-3xl"></i>
+        </button>
+        <img id="modalImage" src="" alt="Screenshot" class="max-w-full max-h-[85vh] rounded-lg shadow-2xl">
+    </div>
+</div>
+
+<script>
+    // RAWG API로 추가 정보 가져오기
+    const RAWG_API_KEY = '{{ rawg_api_key }}';
+    const GAME_TITLE = '{{ game.title|escapejs }}';
+    const HAS_BACKGROUND = {% if game.background_image %}true{% else %} false{% endif %};
+    const HAS_DESCRIPTION = {% if game.description %}true{% else %} false{% endif %};
+    const HAS_SCREENSHOTS = {% if screenshots %}true{% else %} false{% endif %};
+    const HAS_GENRE = {% if game.genre and game.genre != '게임' and game.genre != 'Unknown' %}true{% else %} false{% endif %};
+    const HAS_METACRITIC = {% if game.metacritic_score %}true{% else %} false{% endif %};
+
+    async function fetchRAWGData() {
+        // 데이터가 이미 다 있으면 스킵
+        if (HAS_BACKGROUND && HAS_DESCRIPTION && HAS_SCREENSHOTS && HAS_GENRE && HAS_METACRITIC) {
+            console.log('All data already available from DB');
+            return;
+        }
+
+        try {
+            // 게임 이름으로 RAWG 검색
+            const searchResponse = await fetch(`https://api.rawg.io/api/games?key=${RAWG_API_KEY}&search=${encodeURIComponent(GAME_TITLE)}&page_size=1`);
+            const searchData = await searchResponse.json();
+
+            if (!searchData.results || searchData.results.length === 0) {
+                console.log('Game not found on RAWG');
+                hideLoaders();
+                return;
+            }
+
+            const gameId = searchData.results[0].id;
+
+            // 게임 상세 정보 가져오기
+            const detailResponse = await fetch(`https://api.rawg.io/api/games/${gameId}?key=${RAWG_API_KEY}`);
+            const gameData = await detailResponse.json();
+
+            // 배경 이미지 업데이트
+            if (!HAS_BACKGROUND && gameData.background_image) {
+                const headerImage = document.getElementById('headerImage');
+                const headerPlaceholder = document.getElementById('headerPlaceholder');
+                if (headerImage && headerPlaceholder) {
+                    headerImage.src = gameData.background_image;
+                    headerImage.classList.remove('hidden');
+                    headerPlaceholder.classList.add('hidden');
+                }
+            }
+
+            // 장르 업데이트
+            if (!HAS_GENRE && gameData.genres && gameData.genres.length > 0) {
+                const genreNames = gameData.genres.slice(0, 2).map(g => g.name).join(', ');
+                document.getElementById('genreBadge').textContent = genreNames;
+                document.getElementById('sidebarGenre').textContent = genreNames;
+            }
+
+            // 메타크리틱 업데이트
+            if (!HAS_METACRITIC && gameData.metacritic) {
+                document.getElementById('rawgMetacriticValue').textContent = gameData.metacritic;
+                document.getElementById('rawgMetacriticBadge').classList.remove('hidden');
+                document.getElementById('sidebarMetacriticValue').textContent = gameData.metacritic;
+                document.getElementById('sidebarMetacritic').classList.remove('hidden');
+            }
+
+            // RAWG 평점 표시
+            if (gameData.rating) {
+                document.getElementById('rawgRatingValue').textContent = gameData.rating.toFixed(1);
+                document.getElementById('rawgRating').classList.remove('hidden');
+                document.getElementById('rawgRating').classList.add('flex');
+            }
+
+            // 출시일 표시
+            if (gameData.released) {
+                document.getElementById('releasedValue').textContent = gameData.released;
+                document.getElementById('releasedDate').classList.remove('hidden');
+                document.getElementById('releasedDate').classList.add('flex');
+            }
+
+            // 개발사/퍼블리셔 표시
+            if (gameData.developers && gameData.developers.length > 0) {
+                document.getElementById('sidebarDeveloperValue').textContent = gameData.developers.map(d => d.name).join(', ');
+                document.getElementById('sidebarDeveloper').classList.remove('hidden');
+                document.getElementById('sidebarDeveloper').classList.add('flex');
+            }
+            if (gameData.publishers && gameData.publishers.length > 0) {
+                document.getElementById('sidebarPublisherValue').textContent = gameData.publishers.map(p => p.name).join(', ');
+                document.getElementById('sidebarPublisher').classList.remove('hidden');
+                document.getElementById('sidebarPublisher').classList.add('flex');
+            }
+
+            // 설명 업데이트
+            if (!HAS_DESCRIPTION && gameData.description_raw) {
+                const descLoader = document.getElementById('descriptionLoader');
+                if (descLoader) descLoader.classList.add('hidden');
+                document.getElementById('descriptionContent').innerHTML = gameData.description_raw.split('\n\n').map(p => `<p class="mb-4">${p}</p>`).join('');
+            }
+
+            // 스크린샷 가져오기
+            if (!HAS_SCREENSHOTS) {
+                const screenshotsResponse = await fetch(`https://api.rawg.io/api/games/${gameId}/screenshots?key=${RAWG_API_KEY}&page_size=8`);
+                const screenshotsData = await screenshotsResponse.json();
+
+                const screenshotsLoader = document.getElementById('screenshotsLoader');
+                if (screenshotsLoader) screenshotsLoader.classList.add('hidden');
+
+                if (screenshotsData.results && screenshotsData.results.length > 0) {
+                    const grid = document.getElementById('screenshotsGrid');
+                    grid.innerHTML = screenshotsData.results.map(ss => `
+                        <div class="group relative aspect-video rounded-xl overflow-hidden bg-gray-100 cursor-pointer hover:ring-4 hover:ring-blue-500 transition-all"
+                            onclick="openImageModal('${ss.image}')">
+                            <img src="${ss.image}" alt="스크린샷"
+                                class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300">
+                            <div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors"></div>
+                        </div>
+                    `).join('');
+
+                    // 스크린샷 통계 업데이트
+                    document.getElementById('screenshotCount').textContent = screenshotsData.results.length;
+                    document.getElementById('screenshotStats').classList.remove('hidden');
+                } else {
+                    document.getElementById('screenshotsSection').classList.add('hidden');
+                }
+            }
+
+        } catch (error) {
+            console.error('Failed to fetch RAWG data:', error);
+            hideLoaders();
+        }
+    }
+
+    function hideLoaders() {
+        const loaders = ['descriptionLoader', 'screenshotsLoader'];
+        loaders.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.classList.add('hidden');
+        });
+    }
+
+    function openImageModal(imageUrl) {
+        const modal = document.getElementById('imageModal');
+        const modalImage = document.getElementById('modalImage');
+        modalImage.src = imageUrl;
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+
+    function closeImageModal() {
+        const modal = document.getElementById('imageModal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+
+    // 페이지 로드 시 RAWG 데이터 가져오기
+    document.addEventListener('DOMContentLoaded', fetchRAWGData);
+
+    // ESC 키로 모달 닫기
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+            closeImageModal();
+        }
+    });
+</script>
+{% endblock %}

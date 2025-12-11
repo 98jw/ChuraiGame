@@ -1,0 +1,195 @@
+{% verbatim %}
+<!-- AI Recommend Tab (GPT-5 Nano Powered) -->
+<div v-if="currentTab === 'ai'" class="space-y-6">
+
+    <!-- Page Header -->
+    <div
+        class="bg-gradient-to-r from-cyan-500 via-blue-600 to-purple-600 p-8 rounded-[2.5rem] shadow-lg relative overflow-hidden">
+        <div class="relative z-10">
+            <div class="flex items-center gap-3 mb-2">
+                <div class="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center">
+                    <i class="ph-fill ph-robot text-3xl text-white"></i>
+                </div>
+                <div>
+                    <h2 class="text-3xl font-bold text-white leading-tight">
+                        AI 게임 추천봇
+                    </h2>
+                    <p class="text-white/80 text-sm">GPT-5 Nano 기반 게임 전문 AI</p>
+                </div>
+            </div>
+            <p class="text-white/90 mt-4">
+                취향과 플레이 스타일을 분석하여 최적의 게임을 추천해드려요.<br>
+                자유롭게 질문해보세요! 🎮
+            </p>
+            <!-- Steam Link Status Badge -->
+            {% endverbatim %}
+            {% if user.is_steam_linked %}
+            <div class="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-white/20 backdrop-blur-sm rounded-xl">
+                <i class="ph-fill ph-steam-logo text-white text-lg"></i>
+                <span class="text-white text-sm font-medium">Steam 라이브러리 연동됨 ✓</span>
+                <span class="text-white/70 text-xs">| 개인화 추천 활성</span>
+            </div>
+            {% else %}
+            <a href="{% url 'users:steam_login' %}?next=/"
+                class="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-xl transition-colors">
+                <i class="ph-fill ph-steam-logo text-white text-lg"></i>
+                <span class="text-white text-sm font-medium">Steam 연동하면 더 정확한 추천!</span>
+            </a>
+            {% endif %}
+            {% verbatim %}
+        </div>
+        <div class="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16"></div>
+        <div class="absolute bottom-0 left-1/2 w-48 h-48 bg-purple-400/20 rounded-full blur-2xl -mb-24"></div>
+    </div>
+
+    <!-- Chat Container -->
+    <div class="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden flex flex-col"
+        style="height: 600px;">
+
+        <!-- Chat Header -->
+        <div
+            class="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b border-gray-100 flex items-center gap-3">
+            <div
+                class="w-10 h-10 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center shadow-lg">
+                <i class="ph-fill ph-robot text-white text-xl"></i>
+            </div>
+            <div>
+                <h3 class="font-bold text-gray-800">게임 추천 전문가 AI</h3>
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                    <span class="text-xs text-gray-500">온라인</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat Messages -->
+        <div ref="chatContainer"
+            class="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar bg-gradient-to-b from-gray-50/50 to-white">
+
+            <!-- Welcome Message -->
+            <div v-if="aiChatMessages.length === 0" class="flex gap-3">
+                <div
+                    class="w-10 h-10 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-md">
+                    <i class="ph-fill ph-robot text-white"></i>
+                </div>
+                <div class="bg-white rounded-2xl rounded-tl-md px-5 py-4 shadow-sm border border-gray-100 max-w-[80%]">
+                    <p class="text-gray-700 leading-relaxed">
+                        안녕하세요! 저는 게임 추천 전문가 AI예요. 🎮<br><br>
+                        다음과 같은 질문을 해보세요:<br>
+                        • "액션 RPG 추천해줘"<br>
+                        • "혼자 할 수 있는 힐링 게임 알려줘"<br>
+                        • "스팀에서 세일 중인 인디 게임 추천"<br>
+                        • "포트나이트 같은 배틀로얄 게임 뭐가 있어?"<br><br>
+                        무엇이든 물어보세요! 취향에 맞는 완벽한 게임을 찾아드릴게요. ✨
+                    </p>
+                </div>
+            </div>
+
+            <!-- Chat Messages Loop -->
+            <div v-for="(msg, index) in aiChatMessages" :key="index"
+                :class="msg.role === 'user' ? 'flex justify-end' : 'flex'" class="gap-3">
+
+                <!-- AI Message -->
+                <template v-if="msg.role === 'assistant'">
+                    <div
+                        class="w-10 h-10 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-md">
+                        <i class="ph-fill ph-robot text-white"></i>
+                    </div>
+                    <div
+                        class="bg-white rounded-2xl rounded-tl-md px-5 py-4 shadow-sm border border-gray-100 max-w-[80%]">
+                        <p class="text-gray-700 leading-relaxed whitespace-pre-wrap"
+                            v-html="formatAIMessage(msg.content)"></p>
+                    </div>
+                </template>
+
+                <!-- User Message -->
+                <template v-else-if="msg.role === 'user'">
+                    <div
+                        class="bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-2xl rounded-tr-md px-5 py-4 shadow-md max-w-[80%]">
+                        <p class="leading-relaxed">{{ msg.content }}</p>
+                    </div>
+                </template>
+            </div>
+
+            <!-- Loading Indicator -->
+            <div v-if="isAiLoading" class="flex gap-3">
+                <div
+                    class="w-10 h-10 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-md">
+                    <i class="ph-fill ph-robot text-white"></i>
+                </div>
+                <div class="bg-white rounded-2xl rounded-tl-md px-5 py-4 shadow-sm border border-gray-100">
+                    <div class="flex items-center gap-2">
+                        <div class="flex gap-1">
+                            <span class="w-2 h-2 bg-blue-500 rounded-full animate-bounce"
+                                style="animation-delay: 0ms;"></span>
+                            <span class="w-2 h-2 bg-blue-500 rounded-full animate-bounce"
+                                style="animation-delay: 150ms;"></span>
+                            <span class="w-2 h-2 bg-blue-500 rounded-full animate-bounce"
+                                style="animation-delay: 300ms;"></span>
+                        </div>
+                        <span class="text-gray-500 text-sm ml-2">생각하고 있어요...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Error Message -->
+        <div v-if="aiError" class="px-6 py-3 bg-red-50 border-t border-red-100">
+            <p class="text-red-600 text-sm flex items-center gap-2">
+                <i class="ph-bold ph-warning-circle"></i>
+                {{ aiError }}
+            </p>
+        </div>
+
+        <!-- Chat Input -->
+        <div class="p-4 border-t border-gray-100 bg-gray-50/50">
+            <div class="flex gap-3">
+                <input v-model="aiUserInput" @keyup.enter="sendAiMessage" type="text"
+                    placeholder="게임 추천을 요청해보세요... (예: 스토리가 좋은 RPG 추천해줘)"
+                    class="flex-1 px-5 py-3 bg-white border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    :disabled="isAiLoading">
+                <button @click="sendAiMessage" :disabled="isAiLoading || !aiUserInput.trim()"
+                    class="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-2xl font-bold hover:from-blue-700 hover:to-purple-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl flex items-center gap-2">
+                    <i class="ph-bold ph-paper-plane-tilt"></i>
+                    전송
+                </button>
+            </div>
+
+            <!-- Quick Suggestions -->
+            <div class="mt-3 flex flex-wrap gap-2">
+                <button v-for="suggestion in aiQuickSuggestions" :key="suggestion"
+                    @click="aiUserInput = suggestion; sendAiMessage();"
+                    class="px-3 py-1.5 bg-white border border-gray-200 rounded-full text-xs text-gray-600 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 transition-colors">
+                    {{ suggestion }}
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Feature Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+            <div class="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mb-3">
+                <i class="ph-fill ph-brain text-2xl text-purple-600"></i>
+            </div>
+            <h4 class="font-bold text-gray-800 mb-1">취향 분석</h4>
+            <p class="text-sm text-gray-500">Steam 라이브러리를 분석하여 개인 맞춤 추천을 제공해요</p>
+        </div>
+        <div class="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+            <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mb-3">
+                <i class="ph-fill ph-game-controller text-2xl text-blue-600"></i>
+            </div>
+            <h4 class="font-bold text-gray-800 mb-1">장르별 추천</h4>
+            <p class="text-sm text-gray-500">원하는 장르를 말하면 최고의 게임들을 추천해드려요</p>
+        </div>
+        <div class="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+            <div class="w-12 h-12 bg-cyan-100 rounded-xl flex items-center justify-center mb-3">
+                <i class="ph-fill ph-sparkle text-2xl text-cyan-600"></i>
+            </div>
+            <h4 class="font-bold text-gray-800 mb-1">AI 대화</h4>
+            <p class="text-sm text-gray-500">자연스러운 대화로 게임을 찾아보세요</p>
+        </div>
+    </div>
+
+</div>
+{% endverbatim %}

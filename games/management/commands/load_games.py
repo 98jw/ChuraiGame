@@ -6,7 +6,7 @@ from django.conf import settings
 import re
 
 class Command(BaseCommand):
-    help = 'Load game data from steam_sale_dataset_fast.json into database'
+    help = 'Load game data from Steam sale JSON files into database'
 
     def extract_app_id(self, game_id_str):
         """Extract numeric app ID from Steam game_id"""
@@ -19,16 +19,31 @@ class Command(BaseCommand):
             return None
 
     def handle(self, *args, **options):
-        json_file_path = os.path.join(settings.BASE_DIR, 'users', 'steam_sale_dataset_fast.json')
+        # Try new format first, then legacy
+        new_json_path = os.path.join(settings.BASE_DIR, 'users', 'steam_sale_data.json')
+        legacy_json_path = os.path.join(settings.BASE_DIR, 'users', 'steam_sale_dataset_fast.json')
         
-        if not os.path.exists(json_file_path):
-            self.stdout.write(self.style.ERROR(f'File not found: {json_file_path}'))
+        games_data = []
+        
+        if os.path.exists(new_json_path):
+            self.stdout.write(f'Loading games from {new_json_path}...')
+            with open(new_json_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                # Combine current_sales and best_prices
+                games_data = data.get('current_sales', [])
+                # Also add best_prices for historical games
+                for game in data.get('best_prices', []):
+                    if game.get('game_id') not in [g.get('game_id') for g in games_data]:
+                        games_data.append(game)
+        elif os.path.exists(legacy_json_path):
+            self.stdout.write(f'Loading games from {legacy_json_path}...')
+            with open(legacy_json_path, 'r', encoding='utf-8') as f:
+                games_data = json.load(f)
+        else:
+            self.stdout.write(self.style.ERROR(f'No game data file found!'))
             return
         
-        self.stdout.write(f'Loading games from {json_file_path}...')
-        
-        with open(json_file_path, 'r', encoding='utf-8') as f:
-            games_data = json.load(f)
+        self.stdout.write(f'Found {len(games_data)} games to process...')
         
         created_count = 0
         updated_count = 0
@@ -38,6 +53,7 @@ class Command(BaseCommand):
             game_id_str = game_data.get('game_id')
             title = game_data.get('title')
             thumbnail = game_data.get('thumbnail', '')
+            store_link = game_data.get('store_link', '')
             
             if not game_id_str or not title:
                 skipped_count += 1
@@ -56,7 +72,7 @@ class Command(BaseCommand):
                 defaults={
                     'title': title,
                     'genre': 'Unknown',  # JSON doesn't have genre info
-                    'image_url': thumbnail or 'https://via.placeholder.com/460x215'
+                    'image_url': thumbnail or 'https://via.placeholder.com/460x215',
                 }
             )
             

@@ -22,13 +22,14 @@ class CommentSerializer(serializers.ModelSerializer):
 class PostSerializer(serializers.ModelSerializer):
     author_name = serializers.ReadOnlyField(source='author.nickname')
     comments = CommentSerializer(many=True, read_only=True) # 게시글 볼 때 댓글도 같이 봄
+    comments_count = serializers.IntegerField(source='comments.count', read_only=True)
     is_liked = serializers.SerializerMethodField()
     likes_count = serializers.IntegerField(source='like_users.count', read_only=True)
     image_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Post
-        fields = ['id', 'category', 'title', 'content', 'image', 'video', 'image_url', 'author_name', 'created_at', 'updated_at', 'comments', 'is_liked', 'likes_count']
+        fields = ['id', 'category', 'title', 'content', 'image', 'video', 'image_url', 'author_name', 'created_at', 'updated_at', 'comments', 'comments_count', 'is_liked', 'likes_count']
         read_only_fields = ['author']
 
     def get_is_liked(self, obj):

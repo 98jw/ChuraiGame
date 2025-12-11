@@ -1,27 +1,32 @@
 <!-- Mobile Bottom Nav -->
 <nav v-if="currentStep === 'main'"
-    class="md:hidden fixed bottom-0 w-full bg-white/90 backdrop-blur border-t border-gray-100 px-4 py-3 flex justify-between items-center z-50 safe-area-pb">
-    <button @click="currentTab = 'home'" class="flex flex-col items-center gap-1 w-1/5"
+    class="md:hidden fixed bottom-0 w-full bg-white/90 backdrop-blur border-t border-gray-100 px-2 py-3 flex justify-between items-center z-50 safe-area-pb">
+    <button @click="currentTab = 'home'" class="flex flex-col items-center gap-1 w-1/6"
         :class="currentTab === 'home' ? 'text-blue-600' : 'text-gray-400'">
         <i :class="currentTab === 'home' ? 'ph-fill ph-house' : 'ph-bold ph-house'" class="text-xl"></i>
         <span class="text-[10px] font-medium">홈</span>
     </button>
-    <button @click="currentTab = 'recommend'" class="flex flex-col items-center gap-1 w-1/5"
+    <button @click="currentTab = 'recommend'" class="flex flex-col items-center gap-1 w-1/6"
         :class="currentTab === 'recommend' ? 'text-purple-600' : 'text-gray-400'">
         <i :class="currentTab === 'recommend' ? 'ph-fill ph-target' : 'ph-bold ph-target'" class="text-xl"></i>
         <span class="text-[10px] font-medium">추천</span>
     </button>
-    <button @click="currentTab = 'sale'" class="flex flex-col items-center gap-1 w-1/5"
+    <button @click="currentTab = 'ai'" class="flex flex-col items-center gap-1 w-1/6"
+        :class="currentTab === 'ai' ? 'text-cyan-600' : 'text-gray-400'">
+        <i :class="currentTab === 'ai' ? 'ph-fill ph-robot' : 'ph-bold ph-robot'" class="text-xl"></i>
+        <span class="text-[10px] font-medium">AI</span>
+    </button>
+    <button @click="currentTab = 'sale'" class="flex flex-col items-center gap-1 w-1/6"
         :class="currentTab === 'sale' ? 'text-red-600' : 'text-gray-400'">
         <i :class="currentTab === 'sale' ? 'ph-fill ph-tag' : 'ph-bold ph-tag'" class="text-xl"></i>
         <span class="text-[10px] font-medium">세일</span>
     </button>
-    <button @click="currentTab = 'community'" class="flex flex-col items-center gap-1 w-1/5"
+    <button @click="currentTab = 'community'" class="flex flex-col items-center gap-1 w-1/6"
         :class="currentTab === 'community' ? 'text-blue-600' : 'text-gray-400'">
         <i :class="currentTab === 'community' ? 'ph-fill ph-users' : 'ph-bold ph-users'" class="text-xl"></i>
         <span class="text-[10px] font-medium">커뮤니티</span>
     </button>
-    <button @click="currentStep = 'profile'" class="flex flex-col items-center gap-1 w-1/5 text-gray-400">
+    <button @click="currentStep = 'profile'" class="flex flex-col items-center gap-1 w-1/6 text-gray-400">
         <i class="ph-bold ph-user text-xl"></i>
         <span class="text-[10px] font-medium">마이</span>
     </button>

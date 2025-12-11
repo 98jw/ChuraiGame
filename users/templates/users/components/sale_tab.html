@@ -1,87 +1,220 @@
+{% verbatim %}
 <!-- Sale Tab -->
-<div v-else-if="currentTab === 'sale'" class="animate-fade-in">
-    <div class="flex items-center justify-between mb-6 flex-wrap gap-3">
-        <h2 class="text-2xl font-bold">오늘의 특가</h2>
+<div v-else-if="currentTab === 'sale'" class="animate-fade-in space-y-8">
 
-        <!-- Controls Container -->
-        <div class="flex items-center gap-3">
-            <!-- Items Per Page Dropdown -->
-            <div class="flex items-center gap-2">
-                <span class="text-sm text-gray-500">표시:</span>
-                <select v-model="saleItemsPerPage"
+    <!-- Popular Games ON SALE Section -->
+    <section v-if="popularGamesOnSale.length > 0 || isLoadingPopularGames">
+        <div class="flex items-center gap-3 mb-4">
+            <div
+                class="w-10 h-10 bg-gradient-to-br from-yellow-500 to-red-500 rounded-xl flex items-center justify-center">
+                <i class="ph-fill ph-crown text-white text-xl"></i>
+            </div>
+            <div>
+                <h2 class="text-xl font-bold text-gray-800">🔥 인기 게임 세일</h2>
+                <p class="text-sm text-gray-500">RAWG 인기 게임 중 현재 세일 중인 게임</p>
+            </div>
+        </div>
+
+        <!-- Loading State -->
+        <div v-if="isLoadingPopularGames" class="flex items-center justify-center py-8">
+            <i class="ph-bold ph-spinner animate-spin text-2xl text-blue-500 mr-2"></i>
+            <span class="text-gray-500">인기 게임 매칭 중...</span>
+        </div>
+
+        <!-- Empty State -->
+        <div v-else-if="popularGamesOnSale.length === 0" class="text-center py-8 text-gray-500">
+            <i class="ph-bold ph-magnifying-glass text-4xl mb-2"></i>
+            <p>현재 세일 중인 인기 게임이 없습니다</p>
+        </div>
+
+        <!-- Horizontal Scroll Popular Games ON SALE -->
+        <div v-else class="relative">
+            <div class="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory custom-scrollbar">
+                <a v-for="game in popularGamesOnSale" :key="'pop-' + game.rawg_id" :href="`/games/${game.rawg_id}/`"
+                    class="flex-shrink-0 w-72 snap-start bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl overflow-hidden relative group cursor-pointer hover:scale-[1.02] transition-transform">
+                    <!-- Discount Badge -->
+                    <div
+                        class="absolute top-3 left-3 z-10 px-3 py-1 bg-red-500 text-white text-sm font-bold rounded-lg flex items-center gap-1 shadow-lg">
+                        <i class="ph-fill ph-tag"></i>
+                        -{{ Math.round(game.discount_rate * 100) }}%
+                    </div>
+                    <!-- Rating Badge -->
+                    <div
+                        class="absolute top-3 right-3 z-10 px-2 py-1 bg-yellow-500/90 text-white text-xs font-bold rounded-lg flex items-center gap-1">
+                        <i class="ph-fill ph-star"></i>
+                        {{ game.rating ? game.rating.toFixed(1) : 'N/A' }}
+                    </div>
+                    <div class="relative aspect-video">
+                        <img :src="game.image_url || 'https://via.placeholder.com/460x215'" @error="handleImageError"
+                            class="w-full h-full object-cover">
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
+                    </div>
+                    <div class="absolute bottom-0 left-0 right-0 p-4">
+                        <h3 class="font-bold text-white text-sm line-clamp-1 mb-1">{{ game.title }}</h3>
+                        <div class="flex items-center gap-2 text-xs text-gray-300 mb-2">
+                            <span v-if="game.released">{{ game.released.substring(0, 4) }}</span>
+                            <span v-if="game.genres && game.genres.length">• {{ game.genres[0] }}</span>
+                            <span v-if="game.metacritic" class="px-1.5 py-0.5 rounded text-xs"
+                                :class="game.metacritic >= 75 ? 'bg-green-500/80' : game.metacritic >= 50 ? 'bg-yellow-500/80' : 'bg-red-500/80'">
+                                {{ game.metacritic }}
+                            </span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs text-gray-400 line-through">₩{{ formatPrice(game.original_price)
+                                    }}</span>
+                                <span class="text-lg font-bold text-green-400">₩{{ formatPrice(game.current_price)
+                                    }}</span>
+                            </div>
+                            <div
+                                class="w-8 h-8 rounded-full bg-white/10 text-white flex items-center justify-center group-hover:bg-white/20 transition-colors">
+                                <i class="ph-bold ph-arrow-right"></i>
+                            </div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Best Historical Prices Section -->
+    <section v-if="bestPrices.length > 0">
+        <div class="flex items-center gap-3 mb-4">
+            <div
+                class="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
+                <i class="ph-fill ph-trophy text-white text-xl"></i>
+            </div>
+            <div>
+                <h2 class="text-xl font-bold text-gray-800">🏆 역대 최대 할인</h2>
+                <p class="text-sm text-gray-500">역사상 가장 높은 할인율을 기록한 게임들</p>
+            </div>
+        </div>
+
+        <!-- Horizontal Scroll Best Prices -->
+        <div class="relative">
+            <div class="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory custom-scrollbar">
+                <a v-for="game in bestPrices.slice(0, 15)" :key="'best-' + game.game_id"
+                    :href="`/games/${game.game_id}/`"
+                    class="flex-shrink-0 w-64 snap-start bg-gradient-to-br from-purple-900 to-indigo-900 rounded-2xl overflow-hidden relative group cursor-pointer hover:scale-[1.02] transition-transform">
+                    <!-- Best Price Badge -->
+                    <div
+                        class="absolute top-3 left-3 z-10 px-2 py-1 bg-purple-500 text-white text-xs font-bold rounded-lg flex items-center gap-1">
+                        <i class="ph-fill ph-medal"></i>
+                        최대 -{{ Math.round(game.discount_rate * 100) }}%
+                    </div>
+                    <div class="relative aspect-video">
+                        <img :src="game.thumbnail" @error="handleImageError" class="w-full h-full object-cover">
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
+                    </div>
+                    <div class="absolute bottom-0 left-0 right-0 p-4">
+                        <h3 class="font-bold text-white text-sm line-clamp-1 mb-2">{{ game.title }}</h3>
+                        <div class="flex items-end justify-between">
+                            <div>
+                                <span class="text-xs text-gray-400 line-through block">₩{{
+                                    formatPrice(game.original_price) }}</span>
+                                <span class="text-lg font-bold text-purple-300">₩{{ formatPrice(game.current_price)
+                                    }}</span>
+                            </div>
+                            <div class="w-8 h-8 rounded-full bg-white/10 text-white flex items-center justify-center">
+                                <i class="ph-bold ph-arrow-right"></i>
+                            </div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Main Sale List -->
+    <section>
+        <div class="flex items-center justify-between mb-6 flex-wrap gap-3">
+            <div class="flex items-center gap-3">
+                <div
+                    class="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center">
+                    <i class="ph-fill ph-tag text-white text-xl"></i>
+                </div>
+                <h2 class="text-xl font-bold">💰 현재 세일 중</h2>
+            </div>
+
+            <!-- Controls Container -->
+            <div class="flex items-center gap-3">
+                <!-- Items Per Page Dropdown -->
+                <div class="flex items-center gap-2">
+                    <span class="text-sm text-gray-500">표시:</span>
+                    <select v-model="saleItemsPerPage"
+                        class="bg-white border border-gray-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500">
+                        <option :value="5">5개</option>
+                        <option :value="10">10개</option>
+                        <option :value="20">20개</option>
+                        <option :value="30">30개</option>
+                    </select>
+                </div>
+
+                <!-- Sort Dropdown -->
+                <select v-model="sortBy"
                     class="bg-white border border-gray-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500">
-                    <option :value="5">5개</option>
-                    <option :value="10">10개</option>
-                    <option :value="20">20개</option>
-                    <option :value="30">30개</option>
+                    <option value="interest">추천순 (관심도)</option>
+                    <option value="discount">높은 할인율순</option>
+                    <option value="price_asc">낮은 가격순</option>
                 </select>
             </div>
-
-            <!-- Sort Dropdown -->
-            <select v-model="sortBy"
-                class="bg-white border border-gray-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500">
-                <option value="interest">추천순 (관심도)</option>
-                <option value="discount">높은 할인율순</option>
-                <option value="price_asc">낮은 가격순</option>
-            </select>
         </div>
-    </div>
 
-    <!-- Games Count Info -->
-    <div class="mb-4 text-sm text-gray-500">
-        {% verbatim %}{{ displayedSaleGames.length }}{% endverbatim %}개 표시 중 (전체 {% verbatim %}{{ sortedSaleGames.length
-        }}{% endverbatim %}개)
-    </div>
+        <!-- Games Count Info -->
+        <div class="mb-4 text-sm text-gray-500">
+            {{ displayedSaleGames.length }}개 표시 중 (전체 {{ sortedSaleGames.length }}개)
+        </div>
 
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        <div v-for="game in displayedSaleGames" :key="game.game_id"
-            class="bg-white rounded-2xl overflow-hidden hover:shadow-lg transition-all duration-300 border border-gray-100 flex flex-col group relative">
-            <!-- Wishlist Button -->
-            <button @click.stop="toggleWishlist(game)"
-                class="absolute top-3 left-3 z-10 w-8 h-8 rounded-full bg-black/30 backdrop-blur flex items-center justify-center transition-colors hover:bg-black/50">
-                <i class="ph-fill ph-heart text-lg transition-transform active:scale-75"
-                    :class="isWishlisted(game.game_id) ? 'text-red-500' : 'text-white/70'"></i>
-            </button>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <a v-for="game in displayedSaleGames" :key="game.game_id" :href="`/games/${game.game_id}/`"
+                class="bg-white rounded-2xl overflow-hidden hover:shadow-lg transition-all duration-300 border border-gray-100 flex flex-col group relative cursor-pointer">
+                <!-- Wishlist Button -->
+                <button @click.stop.prevent="toggleWishlist(game)"
+                    class="absolute top-3 left-3 z-10 w-8 h-8 rounded-full bg-black/30 backdrop-blur flex items-center justify-center transition-colors hover:bg-black/50">
+                    <i class="ph-fill ph-heart text-lg transition-transform active:scale-75"
+                        :class="isWishlisted(game.game_id) ? 'text-red-500' : 'text-white/70'"></i>
+                </button>
 
-            <div class="relative aspect-[16/9] bg-gray-200">
-                <img :src="game.thumbnail" @error="handleImageError" class="w-full h-full object-cover">
-                <div
-                    class="absolute top-3 right-3 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-lg shadow-sm">
-                    -{% verbatim %}{{ Math.round(game.discount_rate * 100) }}{% endverbatim %}%
-                </div>
-            </div>
-            <div class="p-4 flex flex-col flex-1">
-                <h3 class="font-bold text-gray-800 mb-1 line-clamp-1" :title="game.title">{% verbatim %}{{
-                    game.title }}{% endverbatim %}</h3>
-                <div class="mt-auto pt-3 flex items-end justify-between">
-                    <div class="flex flex-col">
-                        <span class="text-xs text-gray-400 line-through">₩{% verbatim %}{{
-                            formatPrice(game.original_price) }}{% endverbatim %}</span>
-                        <span class="text-lg font-bold text-blue-600">₩{% verbatim %}{{
-                            formatPrice(game.current_price) }}{% endverbatim %}</span>
+                <div class="relative aspect-[16/9] bg-gray-200">
+                    <img :src="game.thumbnail" @error="handleImageError" class="w-full h-full object-cover">
+                    <div
+                        class="absolute top-3 right-3 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-lg shadow-sm">
+                        -{{ Math.round(game.discount_rate * 100) }}%
                     </div>
-                    <a :href="`/games/${game.game_id}/`"
-                        class="w-8 h-8 rounded-full bg-gray-50 hover:bg-blue-50 text-gray-400 hover:text-blue-600 flex items-center justify-center transition-colors">
-                        <i class="ph-bold ph-arrow-right"></i>
-                    </a>
                 </div>
+                <div class="p-4 flex flex-col flex-1">
+                    <h3 class="font-bold text-gray-800 mb-1 line-clamp-1" :title="game.title">{{ game.title }}</h3>
+                    <div class="mt-auto pt-3 flex items-end justify-between">
+                        <div class="flex flex-col">
+                            <span class="text-xs text-gray-400 line-through">₩{{ formatPrice(game.original_price)
+                                }}</span>
+                            <span class="text-lg font-bold text-blue-600">₩{{ formatPrice(game.current_price) }}</span>
+                        </div>
+                        <div
+                            class="w-8 h-8 rounded-full bg-gray-50 group-hover:bg-blue-50 text-gray-400 group-hover:text-blue-600 flex items-center justify-center transition-colors">
+                            <i class="ph-bold ph-arrow-right"></i>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <!-- Load More Button (Alternative to Infinite Scroll) -->
+        <div class="flex justify-center mt-8">
+            <button v-if="hasMoreSaleGames && !isLoadingMoreSales" @click="currentSaleCount += saleItemsPerPage"
+                class="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold rounded-xl hover:shadow-lg transition-all duration-300 hover:scale-105 flex items-center gap-2">
+                <i class="ph-bold ph-plus"></i>
+                더 보기 ({{ Math.min(saleItemsPerPage, sortedSaleGames.length - displayedSaleGames.length) }}개)
+            </button>
+            <div v-else-if="isLoadingMoreSales" class="flex items-center gap-2 text-gray-500">
+                <i class="ph-bold ph-spinner animate-spin"></i>
+                <span>불러오는 중...</span>
+            </div>
+            <div v-else class="text-gray-400 text-sm py-4">
+                ✅ 모든 게임을 불러왔습니다 ({{ sortedSaleGames.length }}개)
             </div>
         </div>
-    </div>
-
-    <!-- Infinite Scroll Trigger -->
-    <div ref="infiniteScrollTrigger" class="h-10 flex items-center justify-center mt-6">
-        <div v-if="isLoadingMoreSales" class="flex items-center gap-2 text-gray-500">
-            <i class="ph-bold ph-spinner animate-spin"></i>
-            <span>불러오는 중...</span>
-        </div>
-        <div v-else-if="hasMoreSaleGames" class="text-gray-400 text-sm">
-            스크롤하여 더 보기
-        </div>
-        <div v-else class="text-gray-400 text-sm">
-            모든 게임을 불러왔습니다
-        </div>
-    </div>
+    </section>
 
     <!-- Scroll to Top Button -->
     <button v-show="showScrollTopBtn" @click="scrollToTop"
@@ -90,3 +223,4 @@
         <i class="ph-bold ph-arrow-up text-xl"></i>
     </button>
 </div>
+{% endverbatim %}

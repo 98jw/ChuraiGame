@@ -14,6 +14,9 @@
                 <button @click="currentTab = 'recommend'"
                     :class="currentTab === 'recommend' ? 'text-purple-600 font-bold' : 'text-[#8B95A1] hover:text-[#4E5968]'">🎯
                     추천</button>
+                <button @click="currentTab = 'ai'"
+                    :class="currentTab === 'ai' ? 'text-cyan-600 font-bold' : 'text-[#8B95A1] hover:text-[#4E5968]'">🤖
+                    AI 추천</button>
                 <button @click="currentTab = 'sale'"
                     :class="currentTab === 'sale' ? 'text-[#191F28] font-bold' : 'text-[#8B95A1] hover:text-[#4E5968]'">세일</button>
                 <button @click="currentTab = 'community'"

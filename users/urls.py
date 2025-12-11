@@ -22,4 +22,7 @@ urlpatterns = [
     
     # Recommendation API
     path('api/recommendations/', views.personalized_recommendations_api, name='recommendations'),
+    
+    # AI Chatbot API
+    path('api/ai-chat/', views.ai_chat_api, name='ai_chat'),
 ]

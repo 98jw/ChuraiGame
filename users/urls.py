@@ -28,4 +28,15 @@ urlpatterns = [
     
     # Translation API
     path('api/translate/', views.translate_text_api, name='translate'),
+    
+    # Onboarding API (왓챠 스타일 게임 평가)
+    path('api/onboarding/status/', views.onboarding_status_api, name='onboarding_status'),
+    path('api/onboarding/games/', views.onboarding_games_api, name='onboarding_games'),
+    path('api/onboarding/rate/', views.onboarding_rate_api, name='onboarding_rate'),
+    path('api/onboarding/next-step/', views.onboarding_next_step_api, name='onboarding_next_step'),
+    path('api/onboarding/complete/', views.onboarding_complete_api, name='onboarding_complete'),
+    path('api/onboarding/recommendations/', views.onboarding_recommendations_api, name='onboarding_recommendations'),
+    
+    # Game Rating API (상세 페이지에서 사용)
+    path('api/game-rating/<int:rawg_id>/', views.get_game_rating_api, name='get_game_rating'),
 ]

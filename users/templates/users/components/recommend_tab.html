@@ -7,7 +7,9 @@
             <h2 class="text-3xl font-bold text-white leading-tight mb-2">
                 🎯 맞춤 추천
             </h2>
-            <p class="text-white/90 mb-4">Steam 라이브러리를 분석하여 취향에 맞는 게임을 추천해드려요</p>
+            {% verbatim %}
+            <p class="text-white/90 mb-4">{{ recommendationMessage || '취향에 맞는 게임을 추천해드려요' }}</p>
+            {% endverbatim %}
             {% if not user.is_steam_linked %}
             <a href="{% url 'users:steam_login' %}?next=/"
                 class="inline-flex items-center gap-2 px-6 py-3 bg-white/20 hover:bg-white/30 text-white rounded-xl font-medium transition-colors backdrop-blur-sm">
@@ -19,8 +21,8 @@
         <div class="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16"></div>
     </div>
 
+    <!-- Genre Analysis Section (Steam 연동 사용자) -->
     {% if user.is_steam_linked %}
-    <!-- Genre Analysis Section -->
     {% verbatim %}
     <div v-if="genreAnalysis && genreAnalysis.top_genres"
         class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
@@ -72,28 +74,12 @@
     <!-- Loading State -->
     <div v-if="isLoadingRecommendations" class="flex flex-col items-center justify-center py-20">
         <div class="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-        <p class="text-gray-500 text-lg">Steam 라이브러리를 분석하고 있습니다...</p>
+        <p class="text-gray-500 text-lg">취향을 분석하고 있습니다...</p>
         <p class="text-gray-400 text-sm">잠시만 기다려주세요</p>
     </div>
 
-    <!-- No Steam Linked State -->
-    {% if not user.is_steam_linked %}
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
-        <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <i class="ph-fill ph-steam-logo text-4xl text-gray-400"></i>
-        </div>
-        <h3 class="text-xl font-bold text-gray-800 mb-2">Steam 연동이 필요해요</h3>
-        <p class="text-gray-500 mb-6">Steam을 연동하면 플레이 기록을 분석하여<br>취향에 맞는 게임을 추천해드려요</p>
-        <a href="{% url 'users:steam_login' %}?next=/"
-            class="inline-flex items-center gap-2 px-8 py-4 bg-[#171A21] hover:bg-[#2a3f5f] text-white rounded-xl font-bold transition-colors">
-            <i class="ph-fill ph-steam-logo text-xl"></i>
-            Steam 연동하기
-        </a>
-    </div>
-    {% else %}
-
-    <!-- Recommendations Grid -->
     {% verbatim %}
+    <!-- Recommendations Grid (Steam 연동 OR 온보딩 완료) -->
     <div v-if="!isLoadingRecommendations && sortedRecommendations.length > 0" class="space-y-6">
         <!-- Display count info -->
         <div class="text-sm text-gray-400">
@@ -101,7 +87,7 @@
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            <div v-for="game in displayedRecommendations" :key="game.rawg_id"
+            <div v-for="game in displayedRecommendations" :key="game.rawg_id || game.id"
                 class="group cursor-pointer bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1"
                 @click="openRawgGame(game)">
 
@@ -117,7 +103,7 @@
                     </div>
 
                     <!-- Recommendation Score Badge -->
-                    <div
+                    <div v-if="game.recommendation_score"
                         class="absolute top-3 left-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-lg">
                         🎯 {{ game.recommendation_score }}점
                     </div>
@@ -129,7 +115,7 @@
                     </div>
 
                     <!-- Rating Badge -->
-                    <div
+                    <div v-if="game.rating"
                         class="absolute bottom-3 right-3 bg-black/70 backdrop-blur-sm text-white px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1">
                         <i class="ph-fill ph-star text-yellow-400"></i>
                         {{ game.rating }}
@@ -140,7 +126,8 @@
                 <div class="p-4">
                     <h4 class="font-bold text-gray-800 truncate mb-1">{{ game.title }}</h4>
                     <div class="flex items-center justify-between text-sm">
-                        <span class="text-gray-500">{{ game.genres ? game.genres.slice(0, 2).join(', ') : '' }}</span>
+                        <span class="text-gray-500">{{ game.genres ? (Array.isArray(game.genres) ? game.genres.slice(0,
+                            2).join(', ') : game.genres) : '' }}</span>
                         <span v-if="game.metacritic" class="text-green-600 font-bold">🏆 {{ game.metacritic }}</span>
                     </div>
 
@@ -153,31 +140,47 @@
             </div>
         </div>
 
-        <!-- Infinite Scroll Trigger -->
-        <div ref="infiniteScrollTriggerRecommend" class="py-4 flex justify-center">
-            <div v-if="isLoadingMoreRecommendations" class="flex items-center gap-2 text-gray-500">
-                <div class="w-5 h-5 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
-                <span class="text-sm">불러오는 중...</span>
-            </div>
-            <div v-else-if="!hasMoreRecommendations" class="text-gray-400 text-sm">
-                모든 추천 게임을 불러왔습니다
-            </div>
+        <!-- Load More Button -->
+        <div v-if="hasMoreRecommendations" class="py-4 flex justify-center">
+            <button @click="loadMoreRecommendations" :disabled="isLoadingMoreRecommendations"
+                class="px-8 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-medium transition-colors disabled:opacity-50">
+                <span v-if="isLoadingMoreRecommendations" class="flex items-center gap-2">
+                    <div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    불러오는 중...
+                </span>
+                <span v-else>더 보기</span>
+            </button>
         </div>
     </div>
 
-    <!-- Empty State -->
-    <div v-else-if="!isLoadingRecommendations"
+    <!-- No Recommendations - Need Onboarding or Steam Link -->
+    <div v-else-if="!isLoadingRecommendations && sortedRecommendations.length === 0"
         class="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
         <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <i class="ph ph-magnifying-glass text-4xl text-gray-400"></i>
+            <i class="ph-fill ph-game-controller text-4xl text-gray-400"></i>
         </div>
-        <h3 class="text-xl font-bold text-gray-800 mb-2">추천 게임을 찾고 있어요</h3>
-        <p class="text-gray-500 mb-6">Steam 라이브러리를 분석 중입니다.<br>잠시 후 다시 시도해주세요.</p>
-        <button @click="fetchRecommendations"
-            class="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-medium transition-colors">
-            다시 시도
-        </button>
+        <h3 class="text-xl font-bold text-gray-800 mb-2">게임 취향을 알려주세요!</h3>
+        <p class="text-gray-500 mb-6">{{ recommendationMessage || '게임 취향 분석을 위해 온보딩을 완료하거나 Steam을 연동해주세요.' }}</p>
+
+        <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <!-- 온보딩 시작 버튼 -->
+            <button @click="restartOnboarding"
+                class="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-xl font-bold transition-colors">
+                <i class="ph-fill ph-game-controller text-xl"></i>
+                게임 취향 설정하기
+            </button>
+
+            <!-- Steam 연동 버튼 -->
+            {% endverbatim %}
+            {% if not user.is_steam_linked %}
+            <a href="{% url 'users:steam_login' %}?next=/"
+                class="inline-flex items-center gap-2 px-8 py-4 bg-[#171A21] hover:bg-[#2a3f5f] text-white rounded-xl font-bold transition-colors">
+                <i class="ph-fill ph-steam-logo text-xl"></i>
+                Steam 연동하기
+            </a>
+            {% endif %}
+            {% verbatim %}
+        </div>
     </div>
     {% endverbatim %}
-    {% endif %}
 </div>

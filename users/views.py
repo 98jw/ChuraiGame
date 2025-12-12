@@ -363,72 +363,87 @@ def steam_recently_played_api(request):
 def personalized_recommendations_api(request):
     """
     API endpoint for personalized game recommendations
-    Based on user's Steam library genres and tags
     
-    Priority:
-    1. Library genre similarity (50 points)
-    2. Rating (30 points)  
-    3. Sale bonus (20 points)
+    추천 소스:
+    1. Steam 연동 사용자 → Steam 라이브러리 기반 추천
+    2. 온보딩 완료 사용자 → DB 평가 데이터 기반 추천 (Item-Based CF)
+    3. 둘 다 없음 → 온보딩 필요 안내
     """
     from .recommendation import get_personalized_recommendations, RAWG_API_KEY
     from .steam_auth import get_steam_owned_games
+    from .onboarding import get_recommendations_for_user
+    from .models import GameRating, OnboardingStatus
     
     user = request.user
     
-    # Debug logging
     print(f"[DEBUG] personalized_recommendations_api called")
-    print(f"[DEBUG] User: {user.email}, Steam linked: {user.is_steam_linked}, Steam ID: {user.steam_id}")
-    print(f"[DEBUG] RAWG_API_KEY loaded: {bool(RAWG_API_KEY)}, length: {len(RAWG_API_KEY) if RAWG_API_KEY else 0}")
+    print(f"[DEBUG] User: {user.email}, Steam linked: {user.is_steam_linked}")
     
-    # Check if Steam is linked
-    if not user.is_steam_linked or not user.steam_id:
-        print(f"[DEBUG] Steam not linked, returning early")
-        return JsonResponse({
-            'is_personalized': False,
-            'recommendations': [],
-            'message': 'Steam 연동 후 개인화 추천을 받을 수 있습니다.',
-            'genres_analysis': None
-        })
+    # 방법 1: Steam 연동 사용자 → 기존 로직
+    if user.is_steam_linked and user.steam_id:
+        print(f"[DEBUG] Using Steam library for recommendations")
+        
+        steam_library = get_steam_owned_games(user.steam_id)
+        
+        if steam_library:
+            # Get sale games
+            try:
+                json_file_path = os.path.join(settings.BASE_DIR, 'users', 'steam_sale_dataset_fast.json')
+                if os.path.exists(json_file_path):
+                    with open(json_file_path, 'r', encoding='utf-8') as f:
+                        sale_games = json.load(f)
+                else:
+                    sale_games = []
+            except Exception as e:
+                sale_games = []
+            
+            result = get_personalized_recommendations(
+                steam_library=steam_library,
+                sale_games=sale_games,
+                limit=250
+            )
+            return JsonResponse(result)
     
-    # Get user's Steam library
-    steam_library = get_steam_owned_games(user.steam_id)
-    print(f"[DEBUG] Steam library fetched: {len(steam_library) if steam_library else 0} games")
+    # 방법 2: 온보딩 완료 사용자 → DB 평가 데이터 기반 추천
+    rating_count = GameRating.objects.filter(user=user, score__gt=0).count()
     
-    if not steam_library:
-        print(f"[DEBUG] No Steam library, returning early")
-        return JsonResponse({
-            'is_personalized': False,
-            'recommendations': [],
-            'message': 'Steam 라이브러리를 가져올 수 없습니다. 프로필이 공개 상태인지 확인해주세요.',
-            'genres_analysis': None
-        })
+    if rating_count >= 3:  # 최소 3개 이상 평가해야 추천 가능
+        print(f"[DEBUG] Using onboarding ratings for recommendations ({rating_count} ratings)")
+        
+        result = get_recommendations_for_user(user, limit=50)
+        
+        if not result.get('needs_onboarding') and result.get('recommendations'):
+            return JsonResponse({
+                'is_personalized': True,
+                'recommendations': result['recommendations'],
+                'message': f'평가 데이터({rating_count}개) 기반 추천입니다.',
+                'genres_analysis': None,
+                'method': result.get('method', 'onboarding_based')
+            })
     
-    # Get sale games from JSON file
+    # 방법 3: 둘 다 없음 → 온보딩 필요
+    print(f"[DEBUG] No recommendation source available, needs onboarding")
+    
+    # 온보딩 상태 확인
     try:
-        json_file_path = os.path.join(settings.BASE_DIR, 'users', 'steam_sale_dataset_fast.json')
-        if os.path.exists(json_file_path):
-            with open(json_file_path, 'r', encoding='utf-8') as f:
-                sale_games = json.load(f)
-        else:
-            sale_games = []
-    except Exception as e:
-        sale_games = []
-        print(f"Error loading sale data: {e}")
+        onboarding = OnboardingStatus.objects.get(user=user)
+        onboarding_status = onboarding.status
+    except OnboardingStatus.DoesNotExist:
+        onboarding_status = 'not_started'
     
-    print(f"[DEBUG] Sale games loaded: {len(sale_games)}")
+    if onboarding_status in ['completed', 'skipped'] and rating_count > 0:
+        message = f'평가 데이터가 부족합니다. (현재 {rating_count}개, 최소 3개 필요)'
+    else:
+        message = '게임 취향 분석을 위해 온보딩을 완료해주세요. 또는 Steam을 연동하세요.'
     
-    # Generate recommendations (250 for infinite scroll)
-    result = get_personalized_recommendations(
-        steam_library=steam_library,
-        sale_games=sale_games,
-        limit=250
-    )
-    
-    print(f"[DEBUG] Recommendations generated: {len(result.get('recommendations', []))} games")
-    print(f"[DEBUG] Is personalized: {result.get('is_personalized')}")
-    print(f"[DEBUG] Message: {result.get('message')}")
-    
-    return JsonResponse(result)
+    return JsonResponse({
+        'is_personalized': False,
+        'recommendations': [],
+        'message': message,
+        'genres_analysis': None,
+        'needs_onboarding': onboarding_status not in ['completed', 'skipped'],
+        'rating_count': rating_count
+    })
 
 
 # =============================================================================
@@ -472,13 +487,84 @@ def ai_chat_api(request):
         # Get user's Steam library info for context
         user = request.user
         steam_context = ""
+        onboarding_context = ""
         is_steam_linked = user.is_steam_linked and user.steam_id
         user_nickname = user.nickname or user.username or "게이머"
         
-        # Games to exclude from recommendations (user's library)
+        # Games to exclude from recommendations (user's library + rated games)
         owned_games_list = []
+        rated_games_list = []
         low_playtime_games = []  # Games with < 2 hours playtime
         
+        # ========================================
+        # 1. 온보딩 평가 데이터 수집 (모든 사용자 공통)
+        # ========================================
+        from .models import GameRating
+        
+        user_ratings = GameRating.objects.filter(
+            user=user
+        ).select_related('game').order_by('-score', '-created_at')
+        
+        if user_ratings.exists():
+            # 좋아하는 게임 (점수 3.5 이상)
+            liked_games = []
+            # 싫어하는 게임 (점수 0 이하)
+            disliked_games = []
+            # 모든 평가한 게임 (추천 제외용)
+            all_rated = []
+            
+            for rating in user_ratings:
+                game = rating.game
+                game_name = game.title
+                genre = game.genre if game.genre and game.genre != 'Unknown' else ''
+                score = rating.score
+                
+                all_rated.append(game_name)
+                
+                if score >= 3.5:
+                    if genre:
+                        liked_games.append(f"- {game_name} ({genre}) - ⭐{score}")
+                    else:
+                        liked_games.append(f"- {game_name} - ⭐{score}")
+                elif score <= 0:
+                    disliked_games.append(f"- {game_name}")
+            
+            rated_games_list = all_rated
+            
+            # 장르 분석
+            genre_counts = {}
+            for rating in user_ratings.filter(score__gte=3.5):
+                if rating.game.genre and rating.game.genre != 'Unknown':
+                    for genre in rating.game.genre.split(', '):
+                        genre = genre.strip()
+                        if genre:
+                            genre_counts[genre] = genre_counts.get(genre, 0) + 1
+            
+            # 가장 선호하는 장르 추출
+            top_genres = sorted(genre_counts.items(), key=lambda x: x[1], reverse=True)[:3]
+            favorite_genres = [g[0] for g in top_genres] if top_genres else []
+            
+            onboarding_context = f"""
+
+[유저 게임 평가 데이터 - {user_nickname}님의 취향 분석]
+📊 총 평가한 게임: {user_ratings.count()}개
+
+❤️ 좋아하는 게임 (높은 평점):
+{chr(10).join(liked_games[:10]) if liked_games else '- 아직 없음'}
+
+🎯 선호 장르: {', '.join(favorite_genres) if favorite_genres else '분석 중...'}
+
+👎 싫어하는/안 맞는 게임:
+{chr(10).join(disliked_games[:5]) if disliked_games else '- 없음'}
+
+⚠️ 이미 평가한 게임 (추천에서 제외):
+{', '.join(all_rated[:15])}{'...(총 ' + str(len(all_rated)) + '개)' if len(all_rated) > 15 else ''}"""
+            
+            print(f"[DEBUG] Onboarding context added: {user_ratings.count()} rated games, favorite genres: {favorite_genres}")
+        
+        # ========================================
+        # 2. Steam 라이브러리 데이터 수집 (연동된 경우)
+        # ========================================
         if is_steam_linked:
             try:
                 steam_library = get_steam_owned_games(user.steam_id)
@@ -514,7 +600,7 @@ def ai_chat_api(request):
                     
                     steam_context = f"""
 
-[유저 Steam 라이브러리 분석 - {user_nickname}님의 게임 취향]
+[유저 Steam 라이브러리 분석 - {user_nickname}님의 플레이 기록]
 📊 총 보유 게임: {total_games}개 | 총 플레이 시간: {total_hours}시간
 
 🎮 가장 많이 플레이한 게임 (취향 분석용):
@@ -532,6 +618,9 @@ def ai_chat_api(request):
             except Exception as e:
                 print(f"Steam library fetch error: {e}")
         
+        # 전체 제외 게임 목록 합치기 (중복 제거)
+        all_excluded_games = list(set(owned_games_list + rated_games_list))
+        
         # Build the system prompt (developer role in GPT-5)
         system_prompt = f"""당신은 '게임 큐레이터 AI'입니다. 게임 추천 전문가로서 다음 역할을 수행합니다:
 
@@ -547,17 +636,22 @@ def ai_chat_api(request):
 - 이모지를 활용하여 친근하고 재미있게 대화
 
 🚫 **중요: 추천 규칙**
-1. 유저가 이미 보유한 게임은 새 게임 추천에서 **제외**합니다
-2. 추천할 때 "'{user_nickname}님이 즐기신 OO 게임과 비슷한 느낌의..." 형태로 유저가 플레이한 게임과 비교하며 설명해주세요
-3. 유저가 보유했지만 플레이타임이 짧은(2시간 미만) 게임이 있다면, 마지막에 "💡 참고로, 이미 가지고 계신 'OO' 게임도 플레이해보시는 건 어떨까요? 숨겨진 명작일 수 있어요!" 형태로 추가 추천해주세요
-4. 유저의 가장 많이 플레이한 게임 장르를 파악해서 비슷한 장르 위주로 추천해주세요
+1. 유저가 이미 평가하거나 보유한 게임은 새 게임 추천에서 **반드시 제외**합니다
+2. 추천할 때 반드시 유저가 플레이/평가한 게임과 비교하며 설명해주세요:
+   - "'{user_nickname}님이 좋아하신 OO 게임처럼 △△한 요소가 있어서..."
+   - "OO 게임과 장르가 비슷하고, 스토리 전개 방식도 닮아있어요"
+   - "OO를 즐기셨다면 이 게임의 ◇◇ 시스템도 마음에 드실 거예요"
+3. 유저의 선호 장르와 좋아하는 게임의 공통점을 분석해서 추천 이유를 구체적으로 설명해주세요
+4. 유저가 싫어한 게임과 비슷한 장르/스타일은 피해주세요 (있다면)
+5. 보유했지만 플레이타임이 짧은 게임이 있다면 마지막에 "💡 참고로, 이미 가지고 계신 'OO'도 한번 플레이해보세요! 숨겨진 명작일 수 있어요" 추가
 
 💡 **응답 규칙**
 - 항상 한국어로 답변
 - 게임 이름은 정확하게 표기 (원제 + 한글명 병기 권장)
 - 1-5개 정도의 게임을 추천할 때는 번호 리스트로 정리
-- 각 게임마다 장르, 특징, 왜 추천하는지 간단히 설명
+- 각 게임마다 장르, 특징, **왜 유저 취향에 맞는지** 구체적으로 설명
 - 마지막에 추가 질문을 유도하는 문구 추가
+{onboarding_context}
 {steam_context}
 
 사용자가 게임 외의 질문을 하면, 친절하게 게임 추천 관련 질문으로 유도해주세요."""
@@ -787,3 +881,226 @@ def translate_text_api(request):
             'error': f'번역 오류: {str(e)}',
             'success': False
         }, status=500)
+
+
+# =============================================================================
+# Onboarding API (왓챠 스타일 게임 평가 시스템)
+# =============================================================================
+
+@login_required
+def onboarding_status_api(request):
+    """
+    온보딩 상태 확인 API
+    
+    Returns:
+        - needs_onboarding: 온보딩이 필요한지 여부
+        - status: 현재 온보딩 상태
+        - total_ratings: 총 평가 수
+    """
+    from .models import OnboardingStatus, GameRating
+    
+    user = request.user
+    
+    # Steam 연동된 사용자는 온보딩 스킵
+    if user.is_steam_linked and user.steam_id:
+        return JsonResponse({
+            'needs_onboarding': False,
+            'reason': 'steam_linked',
+            'status': 'completed'
+        })
+    
+    # 온보딩 상태 확인
+    try:
+        status = OnboardingStatus.objects.get(user=user)
+        needs_onboarding = status.status in ['not_started', 'in_progress']
+    except OnboardingStatus.DoesNotExist:
+        status = None
+        needs_onboarding = True
+    
+    # 이미 평가 데이터가 충분하면 온보딩 필요 없음
+    rating_count = GameRating.objects.filter(user=user).count()
+    if rating_count >= 5:
+        needs_onboarding = False
+    
+    return JsonResponse({
+        'needs_onboarding': needs_onboarding,
+        'status': status.status if status else 'not_started',
+        'current_step': status.current_step if status else 0,
+        'total_ratings': rating_count
+    })
+
+
+@login_required
+def onboarding_games_api(request):
+    """
+    온보딩 게임 목록 API
+    
+    Query params:
+        - step: 현재 단계 (0-4)
+    """
+    from .models import GameRating
+    from .onboarding import get_onboarding_games
+    
+    step = int(request.GET.get('step', 0))
+    
+    # 이미 평가한 게임 ID 목록
+    rated_games = list(GameRating.objects.filter(
+        user=request.user
+    ).values_list('game__rawg_id', flat=True))
+    
+    result = get_onboarding_games(step=step, exclude_rated=rated_games)
+    
+    return JsonResponse(result)
+
+
+@login_required
+@require_http_methods(["POST"])
+def onboarding_rate_api(request):
+    """
+    게임 평가 저장 API
+    
+    Body:
+        - game_id: RAWG 게임 ID
+        - game_title: 게임 제목 (DB에 없을 경우 생성용)
+        - game_image: 게임 이미지 URL
+        - score: 평점 (-1, 0, 3.5, 5)
+    """
+    from .onboarding import save_user_rating
+    from .models import OnboardingStatus
+    from games.models import Game
+    
+    try:
+        data = json.loads(request.body)
+        game_id = data.get('game_id')
+        game_title = data.get('game_title', f'Game {game_id}')
+        game_image = data.get('game_image', '')
+        score = float(data.get('score', 0))
+        
+        if not game_id:
+            return JsonResponse({'error': '게임 ID가 필요합니다.'}, status=400)
+        
+        # 게임이 DB에 없으면 생성
+        game, created = Game.objects.get_or_create(
+            rawg_id=game_id,
+            defaults={
+                'title': game_title,
+                'image_url': game_image,
+                'genre': 'Unknown'
+            }
+        )
+        
+        # 평가 저장
+        rating = save_user_rating(
+            user=request.user,
+            game_id=game.id,
+            score=score,
+            is_onboarding=True
+        )
+        
+        # 온보딩 상태 업데이트
+        status, _ = OnboardingStatus.objects.get_or_create(user=request.user)
+        
+        return JsonResponse({
+            'success': True,
+            'rating_id': rating.id,
+            'total_ratings': status.total_ratings,
+            'game_title': game.title,
+            'score': score
+        })
+        
+    except Exception as e:
+        import traceback
+        print(f"Rating error: {e}")
+        print(traceback.format_exc())
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def onboarding_next_step_api(request):
+    """
+    온보딩 다음 단계로 이동
+    """
+    from .models import OnboardingStatus
+    
+    try:
+        data = json.loads(request.body)
+        next_step = int(data.get('step', 0))
+        
+        status, _ = OnboardingStatus.objects.get_or_create(user=request.user)
+        status.current_step = next_step
+        
+        if status.status == 'not_started':
+            status.status = 'in_progress'
+            status.started_at = timezone.now()
+        
+        status.save()
+        
+        return JsonResponse({
+            'success': True,
+            'current_step': status.current_step
+        })
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def onboarding_complete_api(request):
+    """
+    온보딩 완료/스킵 처리 API
+    
+    Body:
+        - skipped: 스킵 여부 (boolean)
+    """
+    from .onboarding import complete_onboarding
+    
+    try:
+        data = json.loads(request.body)
+        skipped = data.get('skipped', False)
+        
+        status = complete_onboarding(request.user, skipped=skipped)
+        
+        return JsonResponse({
+            'success': True,
+            'status': status.status,
+            'total_ratings': status.total_ratings
+        })
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+def onboarding_recommendations_api(request):
+    """
+    온보딩 기반 게임 추천 API
+    """
+    from .onboarding import get_recommendations_for_user
+    
+    result = get_recommendations_for_user(request.user, limit=20)
+    
+    return JsonResponse(result)
+
+
+@login_required
+def get_game_rating_api(request, rawg_id):
+    """
+    특정 게임에 대한 사용자의 평가 조회 API
+    
+    Args:
+        rawg_id: RAWG 게임 ID
+    
+    Returns:
+        {score: float} or {score: null}
+    """
+    from .models import GameRating
+    from games.models import Game
+    
+    try:
+        game = Game.objects.get(rawg_id=rawg_id)
+        rating = GameRating.objects.get(user=request.user, game=game)
+        return JsonResponse({'score': rating.score, 'game_id': game.id})
+    except (Game.DoesNotExist, GameRating.DoesNotExist):
+        return JsonResponse({'score': None})

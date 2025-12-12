@@ -1,0 +1,184 @@
+{% verbatim %}
+<!-- Onboarding Modal (왓챠 스타일 게임 평가) -->
+<div v-if="showOnboarding" class="fixed inset-0 z-50 overflow-y-auto">
+    <!-- Backdrop -->
+    <div class="fixed inset-0 bg-black/70 backdrop-blur-sm" @click="skipOnboarding"></div>
+
+    <!-- Modal -->
+    <div class="relative min-h-screen flex items-center justify-center p-4">
+        <div
+            class="relative bg-white dark:bg-gray-800 rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden animate-fade-in">
+
+            <!-- Header -->
+            <div class="bg-gradient-to-r from-purple-600 to-pink-600 px-6 py-5 text-white">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 class="text-2xl font-bold flex items-center gap-2">
+                            <i class="ph-fill ph-game-controller"></i>
+                            게임 취향 분석
+                        </h2>
+                        <p class="text-purple-100 mt-1">좋아하는 게임을 평가해주세요. 더 정확한 추천을 받을 수 있어요!</p>
+                    </div>
+                    <button @click="skipOnboarding" class="text-white/80 hover:text-white transition-colors">
+                        <i class="ph-bold ph-x text-2xl"></i>
+                    </button>
+                </div>
+
+                <!-- Progress Bar -->
+                <div class="mt-4">
+                    <div class="flex justify-between text-sm text-purple-100 mb-2">
+                        <span>{{ onboardingStep.name || '시작하기' }}</span>
+                        <span>{{ onboardingCurrentStep + 1 }} / {{ onboardingTotalSteps }}</span>
+                    </div>
+                    <div class="h-2 bg-white/20 rounded-full overflow-hidden">
+                        <div class="h-full bg-white rounded-full transition-all duration-500"
+                            :style="{ width: ((onboardingCurrentStep + 1) / onboardingTotalSteps * 100) + '%' }"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Content -->
+            <div class="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+
+                <!-- Step Description -->
+                <div v-if="onboardingStep" class="text-center mb-6">
+                    <p class="text-xl font-semibold text-gray-800 dark:text-white">{{ onboardingStep.description }}</p>
+                    <p class="text-gray-500 mt-2">플레이해본 게임에 평가를 남겨주세요 (안 해봤으면 스킵!)</p>
+                </div>
+
+                <!-- Loading State -->
+                <div v-if="isLoadingOnboarding" class="flex items-center justify-center py-12">
+                    <i class="ph-bold ph-spinner animate-spin text-4xl text-purple-500 mr-3"></i>
+                    <span class="text-gray-500 text-lg">게임 목록을 불러오는 중...</span>
+                </div>
+
+                <!-- Games Grid -->
+                <div v-else class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div v-for="game in onboardingGames" :key="game.rawg_id"
+                        class="relative group rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-700 transition-all duration-300"
+                        :class="{ 'ring-4 ring-purple-500': onboardingRatings[game.rawg_id] }">
+
+                        <!-- Game Image -->
+                        <div class="aspect-video relative">
+                            <img :src="game.image" @error="handleImageError" class="w-full h-full object-cover">
+                            <div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
+
+                            <!-- Rating Badge (if rated) -->
+                            <div v-if="onboardingRatings[game.rawg_id]"
+                                class="absolute top-2 right-2 px-2 py-1 rounded-lg text-xs font-bold" :class="{
+                                    'bg-red-500 text-white': onboardingRatings[game.rawg_id] === -1,
+                                    'bg-blue-500 text-white': onboardingRatings[game.rawg_id] === 3.5,
+                                    'bg-yellow-500 text-white': onboardingRatings[game.rawg_id] === 5
+                                }">
+                                <span v-if="onboardingRatings[game.rawg_id] === -1">👎</span>
+                                <span v-else-if="onboardingRatings[game.rawg_id] === 3.5">👍</span>
+                                <span v-else-if="onboardingRatings[game.rawg_id] === 5">👍👍</span>
+                            </div>
+                        </div>
+
+                        <!-- Game Info -->
+                        <div class="p-3">
+                            <h3 class="font-semibold text-gray-800 dark:text-white text-sm line-clamp-1">{{ game.title
+                                }}</h3>
+
+                            <!-- Rating Buttons -->
+                            <div class="flex items-center justify-center gap-1 mt-3">
+                                <!-- 역따봉 (싫어요) -->
+                                <button @click="rateGame(game, -1)"
+                                    class="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200"
+                                    :class="onboardingRatings[game.rawg_id] === -1 
+                                        ? 'bg-red-500 text-white scale-110' 
+                                        : 'bg-gray-200 dark:bg-gray-600 text-gray-500 hover:bg-red-100 hover:text-red-500'"
+                                    title="별로예요">
+                                    <i class="ph-fill ph-thumbs-down text-lg"></i>
+                                </button>
+
+                                <!-- 스킵 -->
+                                <button @click="rateGame(game, 0)"
+                                    class="w-10 h-10 rounded-full flex items-center justify-center bg-gray-200 dark:bg-gray-600 text-gray-400 hover:bg-gray-300 transition-all duration-200"
+                                    :class="{ 'opacity-50': onboardingRatings[game.rawg_id] }" title="안 해봤어요">
+                                    <i class="ph-bold ph-minus text-lg"></i>
+                                </button>
+
+                                <!-- 따봉 (좋아요) -->
+                                <button @click="rateGame(game, 3.5)"
+                                    class="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200"
+                                    :class="onboardingRatings[game.rawg_id] === 3.5 
+                                        ? 'bg-blue-500 text-white scale-110' 
+                                        : 'bg-gray-200 dark:bg-gray-600 text-gray-500 hover:bg-blue-100 hover:text-blue-500'"
+                                    title="재밌어요">
+                                    <i class="ph-fill ph-thumbs-up text-lg"></i>
+                                </button>
+
+                                <!-- 쌍따봉 (인생게임) -->
+                                <button @click="rateGame(game, 5)"
+                                    class="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200"
+                                    :class="onboardingRatings[game.rawg_id] === 5 
+                                        ? 'bg-yellow-500 text-white scale-110' 
+                                        : 'bg-gray-200 dark:bg-gray-600 text-gray-500 hover:bg-yellow-100 hover:text-yellow-500'"
+                                    title="인생게임!">
+                                    <span class="text-xs font-bold">👍👍</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Rating Legend -->
+                <div class="flex items-center justify-center gap-6 mt-6 text-sm text-gray-500">
+                    <div class="flex items-center gap-1">
+                        <span
+                            class="w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center text-xs">👎</span>
+                        <span>별로예요</span>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <span class="w-6 h-6 rounded-full bg-gray-300 flex items-center justify-center">
+                            <i class="ph-bold ph-minus text-gray-500 text-xs"></i>
+                        </span>
+                        <span>안 해봤어요</span>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <span
+                            class="w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs">👍</span>
+                        <span>재밌어요</span>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <span
+                            class="w-6 h-6 rounded-full bg-yellow-500 text-white flex items-center justify-center text-xs">👍👍</span>
+                        <span>인생게임!</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div
+                class="px-6 py-4 bg-gray-50 dark:bg-gray-700/50 flex items-center justify-between border-t border-gray-200 dark:border-gray-600">
+                <div class="text-sm text-gray-500">
+                    <span class="font-semibold text-purple-600">{{ Object.keys(onboardingRatings).filter(k =>
+                        onboardingRatings[k] !== 0).length }}</span>개 게임 평가 완료
+                </div>
+
+                <div class="flex items-center gap-3">
+                    <button @click="skipOnboarding"
+                        class="px-4 py-2 text-gray-500 hover:text-gray-700 transition-colors">
+                        나중에 하기
+                    </button>
+
+                    <button v-if="onboardingCurrentStep > 0" @click="prevOnboardingStep"
+                        class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl transition-colors flex items-center gap-2">
+                        <i class="ph-bold ph-arrow-left"></i>
+                        이전
+                    </button>
+
+                    <button @click="nextOnboardingStep"
+                        class="px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold rounded-xl transition-all duration-300 hover:shadow-lg flex items-center gap-2">
+                        <span v-if="onboardingCurrentStep >= onboardingTotalSteps - 1">완료</span>
+                        <span v-else>다음</span>
+                        <i class="ph-bold ph-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endverbatim %}

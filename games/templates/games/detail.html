@@ -83,47 +83,77 @@
                             </span>
                         </div>
                     </div>
-                    <div class="flex gap-3 flex-wrap">
-                        <a v-if="steamStoreUrl" :href="steamStoreUrl" target="_blank"
-                            class="px-6 py-3 bg-gradient-to-r from-[#1b2838] to-[#2a475e] hover:from-[#2a475e] hover:to-[#3d6a8c] text-white rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg hover:shadow-xl active:scale-95">
-                            <i class="ph-fill ph-steam-logo text-xl"></i>
-                            Steam 상점
-                        </a>
-                        <a v-if="game.slug" :href="`https://rawg.io/games/${game.slug}`" target="_blank"
-                            class="px-6 py-3 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg hover:shadow-xl active:scale-95">
-                            <i class="ph-fill ph-globe text-xl"></i>
-                            RAWG에서 보기
-                        </a>
-                        <!-- Steam Store Direct Link (fallback if steamStoreUrl not available) -->
-                        <a v-if="!steamStoreUrl && steamAppId"
-                            :href="`https://store.steampowered.com/app/${steamAppId}/`" target="_blank"
-                            class="px-6 py-3 bg-gradient-to-r from-[#1b2838] to-[#2a475e] hover:from-[#2a475e] hover:to-[#3d6a8c] text-white rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg hover:shadow-xl active:scale-95">
-                            <i class="ph-fill ph-steam-logo text-xl"></i>
-                            Steam 상점
-                        </a>
-                        <!-- CheapShark Direct Deal Button (if redirect URL is available - goes directly to cheapest store) -->
-                        <a v-if="cheapsharkRedirectUrl" :href="cheapsharkRedirectUrl" target="_blank"
-                            class="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg hover:shadow-xl active:scale-95">
-                            <i class="ph-bold ph-lightning text-xl"></i>
-                            <span class="flex flex-col items-start leading-tight">
-                                <span class="text-xs opacity-80">최저가</span>
-                                <span>바로 구매</span>
-                            </span>
-                        </a>
-                        <!-- CheapShark Price Comparison (fallback - shows all store prices) -->
-                        <a v-else-if="steamAppId"
-                            :href="`https://www.cheapshark.com/browse/games?steamAppID=${steamAppId}`" target="_blank"
-                            class="px-6 py-3 bg-gradient-to-r from-pink-600 to-orange-500 hover:from-pink-700 hover:to-orange-600 text-white rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg hover:shadow-xl active:scale-95">
-                            <i class="ph-bold ph-storefront text-xl"></i>
-                            <span class="flex flex-col items-start leading-tight">
-                                <span class="text-xs opacity-80">CheapShark</span>
-                                <span>최저가 비교</span>
-                            </span>
-                        </a>
+                    <!-- Rating Buttons (Netflix Style) -->
+                    <div class="flex flex-col gap-3">
+                        <!-- 평가 버튼들 -->
+                        <div class="flex gap-2">
+                            <button @click="rateGame(-1)"
+                                :class="userRating === -1 ? 'bg-red-500 text-white scale-110' : 'bg-white/20 text-white hover:bg-red-500'"
+                                class="w-12 h-12 rounded-full flex items-center justify-center transition-all duration-200 backdrop-blur-sm shadow-lg"
+                                title="별로예요">
+                                <i class="ph-fill ph-thumbs-down text-xl"></i>
+                            </button>
+                            <button @click="rateGame(3.5)"
+                                :class="userRating === 3.5 ? 'bg-blue-500 text-white scale-110' : 'bg-white/20 text-white hover:bg-blue-500'"
+                                class="w-12 h-12 rounded-full flex items-center justify-center transition-all duration-200 backdrop-blur-sm shadow-lg"
+                                title="재밌어요">
+                                <i class="ph-fill ph-thumbs-up text-xl"></i>
+                            </button>
+                            <button @click="rateGame(5)"
+                                :class="userRating === 5 ? 'bg-yellow-500 text-white scale-110' : 'bg-white/20 text-white hover:bg-yellow-500'"
+                                class="w-12 h-12 rounded-full flex items-center justify-center transition-all duration-200 backdrop-blur-sm shadow-lg"
+                                title="인생게임!">
+                                <span class="font-bold">👍👍</span>
+                            </button>
+                        </div>
+                        <div v-if="userRating" class="text-center text-white text-sm font-medium">
+                            <span v-if="userRating === -1">😐 별로예요</span>
+                            <span v-else-if="userRating === 3.5">👍 재밌어요</span>
+                            <span v-else-if="userRating === 5">🔥 인생게임!</span>
+                        </div>
                     </div>
+                </div>
+                <div class="flex gap-3 flex-wrap mt-4">
+                    <a v-if="steamStoreUrl" :href="steamStoreUrl" target="_blank"
+                        class="px-6 py-3 bg-gradient-to-r from-[#1b2838] to-[#2a475e] hover:from-[#2a475e] hover:to-[#3d6a8c] text-white rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg hover:shadow-xl active:scale-95">
+                        <i class="ph-fill ph-steam-logo text-xl"></i>
+                        Steam 상점
+                    </a>
+                    <a v-if="game.slug" :href="`https://rawg.io/games/${game.slug}`" target="_blank"
+                        class="px-6 py-3 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg hover:shadow-xl active:scale-95">
+                        <i class="ph-fill ph-globe text-xl"></i>
+                        RAWG에서 보기
+                    </a>
+                    <!-- Steam Store Direct Link (fallback if steamStoreUrl not available) -->
+                    <a v-if="!steamStoreUrl && steamAppId" :href="`https://store.steampowered.com/app/${steamAppId}/`"
+                        target="_blank"
+                        class="px-6 py-3 bg-gradient-to-r from-[#1b2838] to-[#2a475e] hover:from-[#2a475e] hover:to-[#3d6a8c] text-white rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg hover:shadow-xl active:scale-95">
+                        <i class="ph-fill ph-steam-logo text-xl"></i>
+                        Steam 상점
+                    </a>
+                    <!-- CheapShark Direct Deal Button (if redirect URL is available - goes directly to cheapest store) -->
+                    <a v-if="cheapsharkRedirectUrl" :href="cheapsharkRedirectUrl" target="_blank"
+                        class="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg hover:shadow-xl active:scale-95">
+                        <i class="ph-bold ph-lightning text-xl"></i>
+                        <span class="flex flex-col items-start leading-tight">
+                            <span class="text-xs opacity-80">최저가</span>
+                            <span>바로 구매</span>
+                        </span>
+                    </a>
+                    <!-- CheapShark Price Comparison (fallback - shows all store prices) -->
+                    <a v-else-if="steamAppId" :href="`https://www.cheapshark.com/browse/games?steamAppID=${steamAppId}`"
+                        target="_blank"
+                        class="px-6 py-3 bg-gradient-to-r from-pink-600 to-orange-500 hover:from-pink-700 hover:to-orange-600 text-white rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg hover:shadow-xl active:scale-95">
+                        <i class="ph-bold ph-storefront text-xl"></i>
+                        <span class="flex flex-col items-start leading-tight">
+                            <span class="text-xs opacity-80">CheapShark</span>
+                            <span>최저가 비교</span>
+                        </span>
+                    </a>
                 </div>
             </div>
         </div>
+
 
         <!-- Content -->
         <div class="p-8 sm:p-12 space-y-12">
@@ -363,6 +393,10 @@
             const isTranslating = ref(false);
             const translationError = ref('');
 
+            // User rating state
+            const userRating = ref(null);
+
+
             // Computed properties for genres
             const primaryGenre = computed(() => {
                 if (game.value && game.value.genres && game.value.genres.length > 0) {
@@ -441,7 +475,71 @@
                 }
             };
 
+            // Rate game function (saves to DB for recommendations)
+            const rateGame = async (score) => {
+                if (!game.value) return;
+
+                // Toggle off if same score clicked
+                if (userRating.value === score) {
+                    userRating.value = null;
+                    return;
+                }
+
+                userRating.value = score;
+
+                try {
+                    const response = await fetch('/users/api/onboarding/rate/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCsrfToken()
+                        },
+                        body: JSON.stringify({
+                            game_id: game.value.id,
+                            game_title: game.value.name,
+                            game_image: game.value.background_image || '',
+                            score: score
+                        })
+                    });
+
+                    if (response.ok) {
+                        console.log('Rating saved:', score);
+                    } else {
+                        console.error('Failed to save rating');
+                    }
+                } catch (e) {
+                    console.error('Error saving rating:', e);
+                }
+            };
+
+            // Get CSRF token
+            const getCsrfToken = () => {
+                const name = 'csrftoken';
+                const cookies = document.cookie.split(';');
+                for (let cookie of cookies) {
+                    const [key, value] = cookie.trim().split('=');
+                    if (key === name) return value;
+                }
+                return '';
+            };
+
+            // Fetch existing user rating
+            const fetchUserRating = async (rawgId) => {
+                try {
+                    const response = await fetch(`/users/api/game-rating/${rawgId}/`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.score !== undefined && data.score !== null) {
+                            userRating.value = data.score;
+                        }
+                    }
+                } catch (e) {
+                    // Silently fail if not logged in or no rating
+                }
+            };
+
             const fetchGameData = async () => {
+
                 try {
                     isLoading.value = true;
 
@@ -516,6 +614,9 @@
 
                     isLoadingDetails.value = false;
 
+                    // Fetch user's existing rating for this game
+                    fetchUserRating(rawgId);
+
                 } catch (e) {
                     console.error('Failed to fetch game:', e);
                     error.value = e.message;
@@ -547,7 +648,10 @@
                 translatedDescription,
                 isTranslating,
                 translationError,
-                toggleTranslation
+                toggleTranslation,
+                // Rating
+                userRating,
+                rateGame
             };
         }
     }).mount('#gameDetailApp');

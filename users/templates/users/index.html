@@ -26,6 +26,9 @@
 
     {% include 'users/components/mobile_nav.html' %}
 
+    <!-- Onboarding Modal (왓챠 스타일) -->
+    {% include 'users/components/onboarding_modal.html' %}
+
 </div>
 {% endblock %}
 
@@ -113,6 +116,15 @@
                 '인디 게임 추천'
             ]);
 
+            // Onboarding State (왓챠 스타일)
+            const showOnboarding = ref(false);
+            const isLoadingOnboarding = ref(false);
+            const onboardingGames = ref([]);
+            const onboardingRatings = ref({});  // { gameId: score }
+            const onboardingCurrentStep = ref(0);
+            const onboardingTotalSteps = ref(5);
+            const onboardingStep = ref(null);
+
             onMounted(async () => {
                 // Initialize Game Data from Django
                 // Use verbatim block or different delimiters if mixing Vue and Django extensively
@@ -172,6 +184,9 @@
 
                 // Setup infinite scroll
                 setupInfiniteScroll();
+
+                // Check if user needs onboarding (Steam 미연동 사용자)
+                checkOnboardingStatus();
             });
 
             const loadGameTab = async (tabName) => {
@@ -839,10 +854,19 @@
             };
 
             const openRawgGame = (game) => {
-                if (game && game.rawg_id) {
+                if (!game) return;
+
+                // rawg_id가 있으면 RAWG 기반 상세 페이지로
+                if (game.rawg_id) {
                     window.location.href = `/games/${game.rawg_id}/`;
                 }
+                // 게임 제목이 있으면 검색 페이지로
+                else if (game.title) {
+                    const params = new URLSearchParams({ title: game.title });
+                    window.location.href = `/games/search/?${params.toString()}`;
+                }
             };
+
 
             // --- Infinite Scroll Methods ---
             const scrollToTop = () => {
@@ -1038,7 +1062,153 @@
                 }
             };
 
+            // --- Onboarding Methods (왓챠 스타일) ---
+
+            // 온보딩 필요 여부 체크
+            const checkOnboardingStatus = async () => {
+                try {
+                    const response = await fetch('/users/api/onboarding/status/');
+                    const data = await response.json();
+
+                    if (data.needs_onboarding) {
+                        // 온보딩이 필요하면 모달 표시
+                        showOnboarding.value = true;
+                        onboardingCurrentStep.value = data.current_step || 0;
+                        await loadOnboardingGames(onboardingCurrentStep.value);
+                    }
+                } catch (e) {
+                    console.error('Onboarding status check failed:', e);
+                }
+            };
+
+            // 온보딩 게임 목록 로드
+            const loadOnboardingGames = async (step) => {
+                isLoadingOnboarding.value = true;
+                try {
+                    const response = await fetch(`/users/api/onboarding/games/?step=${step}`);
+                    const data = await response.json();
+
+                    onboardingGames.value = data.games || [];
+                    onboardingStep.value = data.step_info;
+                    onboardingTotalSteps.value = data.total_steps || 5;
+
+                    if (data.is_complete) {
+                        // 모든 단계 완료
+                        await completeOnboarding();
+                    }
+                } catch (e) {
+                    console.error('Failed to load onboarding games:', e);
+                } finally {
+                    isLoadingOnboarding.value = false;
+                }
+            };
+
+            // 게임 평가
+            const rateGame = async (game, score) => {
+                try {
+                    // 로컬 상태 업데이트 (즉각 반응)
+                    onboardingRatings.value = {
+                        ...onboardingRatings.value,
+                        [game.rawg_id]: score
+                    };
+
+                    // 서버에 저장
+                    await fetch('/users/api/onboarding/rate/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': '{{ csrf_token }}'
+                        },
+                        body: JSON.stringify({
+                            game_id: game.rawg_id,
+                            game_title: game.title,
+                            game_image: game.image,
+                            score: score
+                        })
+                    });
+                } catch (e) {
+                    console.error('Failed to save rating:', e);
+                }
+            };
+
+            // 다음 단계
+            const nextOnboardingStep = async () => {
+                const nextStep = onboardingCurrentStep.value + 1;
+
+                if (nextStep >= onboardingTotalSteps.value) {
+                    // 마지막 단계 완료
+                    await completeOnboarding();
+                } else {
+                    onboardingCurrentStep.value = nextStep;
+
+                    // 서버에 진행 상황 저장
+                    await fetch('/users/api/onboarding/next-step/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': '{{ csrf_token }}'
+                        },
+                        body: JSON.stringify({ step: nextStep })
+                    });
+
+                    // 다음 단계 게임 로드
+                    await loadOnboardingGames(nextStep);
+                }
+            };
+
+            // 이전 단계
+            const prevOnboardingStep = async () => {
+                if (onboardingCurrentStep.value > 0) {
+                    const prevStep = onboardingCurrentStep.value - 1;
+                    onboardingCurrentStep.value = prevStep;
+                    await loadOnboardingGames(prevStep);
+                }
+            };
+
+            // 온보딩 완료
+            const completeOnboarding = async () => {
+                try {
+                    await fetch('/users/api/onboarding/complete/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': '{{ csrf_token }}'
+                        },
+                        body: JSON.stringify({ skipped: false })
+                    });
+                } catch (e) {
+                    console.error('Failed to complete onboarding:', e);
+                }
+                showOnboarding.value = false;
+            };
+
+            // 온보딩 스킵
+            const skipOnboarding = async () => {
+                try {
+                    await fetch('/users/api/onboarding/complete/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': '{{ csrf_token }}'
+                        },
+                        body: JSON.stringify({ skipped: true })
+                    });
+                } catch (e) {
+                    console.error('Failed to skip onboarding:', e);
+                }
+                showOnboarding.value = false;
+            };
+
+            // 온보딩 다시 시작 (마이페이지에서 호출)
+            const restartOnboarding = async () => {
+                onboardingCurrentStep.value = 0;
+                onboardingRatings.value = {};
+                showOnboarding.value = true;
+                await loadOnboardingGames(0);
+            };
+
             return {
+
                 // State
                 currentStep,
                 currentTab,
@@ -1144,8 +1314,23 @@
                 chatContainer,
                 aiQuickSuggestions,
                 sendAiMessage,
-                formatAIMessage
+                formatAIMessage,
+
+                // Onboarding State & Methods (왓챠 스타일)
+                showOnboarding,
+                isLoadingOnboarding,
+                onboardingGames,
+                onboardingRatings,
+                onboardingCurrentStep,
+                onboardingTotalSteps,
+                onboardingStep,
+                rateGame,
+                nextOnboardingStep,
+                prevOnboardingStep,
+                skipOnboarding,
+                restartOnboarding
             };
+
         }
     }).mount('#app');
 </script>

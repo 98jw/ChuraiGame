@@ -1,7 +1,7 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, Http404
-from .models import Game, Rating
+from .models import Game, Rating, CachedGameList
 from .utils import (
     update_game_with_rawg, 
     search_games, 
@@ -347,74 +347,154 @@ def api_popular_games(request):
     """
     Get most popular games (most added to libraries).
     Perfect for '요즘 뜨는 게임' section.
+    Uses DB cache for faster loading.
     
     Query params:
         limit (optional): Number of results (default: 20)
         all_time (optional): If 'true', get all-time popular games without date filter
+        refresh (optional): If 'true', force refresh from API
     
     Example: /api/games/popular/?limit=10&all_time=true
     """
     limit = int(request.GET.get('limit', 20))
     all_time = request.GET.get('all_time', 'false').lower() == 'true'
+    force_refresh = request.GET.get('refresh', 'false').lower() == 'true'
+    
+    # 캐시 카테고리 결정
+    cache_category = 'popular'
+    
+    # 1. 캐시 먼저 확인 (force_refresh가 아닌 경우)
+    if not force_refresh:
+        cached_games = CachedGameList.get_cached_games(cache_category, max_age_hours=6)
+        if cached_games:
+            return JsonResponse({
+                'count': min(len(cached_games), limit),
+                'games': cached_games[:limit],
+                'cached': True
+            })
+    
+    # 2. RAWG API 호출
     results = get_popular_games(page_size=limit, all_time=all_time)
+    
+    # 3. 캐시에 저장 (limit 이상 가져와서 저장)
+    if results:
+        CachedGameList.set_cached_games(cache_category, results)
     
     return JsonResponse({
         'count': len(results),
-        'games': results
+        'games': results,
+        'cached': False
     })
 
 
 def api_top_rated_games(request):
     """
     Get highest rated games.
+    Uses DB cache for faster loading.
     
     Query params:
         limit (optional): Number of results (default: 20)
+        refresh (optional): If 'true', force refresh from API
     
     Example: /api/games/top-rated/?limit=10
     """
     limit = int(request.GET.get('limit', 20))
+    force_refresh = request.GET.get('refresh', 'false').lower() == 'true'
+    
+    cache_category = 'top_rated'
+    
+    if not force_refresh:
+        cached_games = CachedGameList.get_cached_games(cache_category, max_age_hours=6)
+        if cached_games:
+            return JsonResponse({
+                'count': min(len(cached_games), limit),
+                'games': cached_games[:limit],
+                'cached': True
+            })
+    
     results = get_top_rated_games(page_size=limit)
+    
+    if results:
+        CachedGameList.set_cached_games(cache_category, results)
     
     return JsonResponse({
         'count': len(results),
-        'games': results
+        'games': results,
+        'cached': False
     })
 
 
 def api_trending_games(request):
     """
     Get games with highest metacritic scores.
+    Uses DB cache for faster loading.
     
     Query params:
         limit (optional): Number of results (default: 20)
+        refresh (optional): If 'true', force refresh from API
     
     Example: /api/games/trending/?limit=10
     """
     limit = int(request.GET.get('limit', 20))
+    force_refresh = request.GET.get('refresh', 'false').lower() == 'true'
+    
+    cache_category = 'trending'
+    
+    if not force_refresh:
+        cached_games = CachedGameList.get_cached_games(cache_category, max_age_hours=6)
+        if cached_games:
+            return JsonResponse({
+                'count': min(len(cached_games), limit),
+                'games': cached_games[:limit],
+                'cached': True
+            })
+    
     results = get_trending_games(page_size=limit)
+    
+    if results:
+        CachedGameList.set_cached_games(cache_category, results)
     
     return JsonResponse({
         'count': len(results),
-        'games': results
+        'games': results,
+        'cached': False
     })
 
 
 def api_new_releases(request):
     """
     Get recently released games.
+    Uses DB cache for faster loading.
     
     Query params:
         limit (optional): Number of results (default: 20)
+        refresh (optional): If 'true', force refresh from API
     
     Example: /api/games/new-releases/?limit=10
     """
     limit = int(request.GET.get('limit', 20))
+    force_refresh = request.GET.get('refresh', 'false').lower() == 'true'
+    
+    cache_category = 'new_releases'
+    
+    if not force_refresh:
+        cached_games = CachedGameList.get_cached_games(cache_category, max_age_hours=6)
+        if cached_games:
+            return JsonResponse({
+                'count': min(len(cached_games), limit),
+                'games': cached_games[:limit],
+                'cached': True
+            })
+    
     results = get_new_releases(page_size=limit)
+    
+    if results:
+        CachedGameList.set_cached_games(cache_category, results)
     
     return JsonResponse({
         'count': len(results),
-        'games': results
+        'games': results,
+        'cached': False
     })
 
 

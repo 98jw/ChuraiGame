@@ -82,3 +82,107 @@ class SteamLibraryCache(models.Model):
         from django.utils import timezone
         from datetime import timedelta
         return timezone.now() - self.last_updated > timedelta(hours=hours)
+
+
+class GameRating(models.Model):
+    """
+    사용자 게임 평가 모델 (왓챠 스타일)
+    
+    점수 체계:
+    - DISLIKE (-1): 역따봉 (별로예요)
+    - SKIP (0): 스킵/모르겠음
+    - LIKE (3.5): 따봉 (재밌어요)
+    - LOVE (5): 쌍따봉 (인생게임)
+    """
+    RATING_CHOICES = [
+        (-1, '역따봉'),
+        (0, '스킵'),
+        (3.5, '따봉'),
+        (5, '쌍따봉'),
+    ]
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='game_ratings')
+    game = models.ForeignKey('games.Game', on_delete=models.CASCADE, related_name='user_ratings')
+    score = models.FloatField("평점", choices=RATING_CHOICES)
+    
+    # 평가 소스 (온보딩 vs 일반)
+    is_onboarding = models.BooleanField("온보딩 평가 여부", default=False)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "게임 평가"
+        verbose_name_plural = "게임 평가"
+        unique_together = ['user', 'game']  # 한 유저가 한 게임에 하나의 평가만
+        indexes = [
+            models.Index(fields=['user', 'score']),
+            models.Index(fields=['game', 'score']),
+        ]
+    
+    def __str__(self):
+        rating_map = {-1: '역따봉', 0: '스킵', 3.5: '따봉', 5: '쌍따봉'}
+        return f"{self.user.username} - {self.game.title}: {rating_map.get(self.score, self.score)}"
+
+
+class OnboardingStatus(models.Model):
+    """
+    사용자 온보딩 상태 추적
+    
+    온보딩 단계:
+    1. NOT_STARTED: 시작 안함
+    2. IN_PROGRESS: 진행 중
+    3. COMPLETED: 완료
+    4. SKIPPED: 건너뜀
+    """
+    STATUS_CHOICES = [
+        ('not_started', '시작 안함'),
+        ('in_progress', '진행 중'),
+        ('completed', '완료'),
+        ('skipped', '건너뜀'),
+    ]
+    
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='onboarding_status')
+    status = models.CharField("상태", max_length=20, choices=STATUS_CHOICES, default='not_started')
+    
+    # 진행 상황 추적
+    current_step = models.IntegerField("현재 단계", default=0)  # 0: 초기, 1-5: 장르별 단계
+    total_ratings = models.IntegerField("총 평가 수", default=0)
+    
+    # 날짜 추적
+    started_at = models.DateTimeField("시작 시간", null=True, blank=True)
+    completed_at = models.DateTimeField("완료 시간", null=True, blank=True)
+    
+    class Meta:
+        verbose_name = "온보딩 상태"
+        verbose_name_plural = "온보딩 상태"
+    
+    def __str__(self):
+        return f"{self.user.username}: {self.get_status_display()}"
+
+
+class GameSimilarity(models.Model):
+    """
+    게임 간 유사도 (미리 계산된 데이터)
+    
+    - 매일 배치 작업으로 계산
+    - Item-Based Collaborative Filtering에 사용
+    """
+    game_a = models.ForeignKey('games.Game', on_delete=models.CASCADE, related_name='similarity_from')
+    game_b = models.ForeignKey('games.Game', on_delete=models.CASCADE, related_name='similarity_to')
+    similarity_score = models.FloatField("유사도 점수")  # 0 ~ 1
+    
+    # 배치 관리
+    calculated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "게임 유사도"
+        verbose_name_plural = "게임 유사도"
+        unique_together = ['game_a', 'game_b']
+        indexes = [
+            models.Index(fields=['game_a', 'similarity_score']),
+            models.Index(fields=['game_b', 'similarity_score']),
+        ]
+    
+    def __str__(self):
+        return f"{self.game_a.title} <-> {self.game_b.title}: {self.similarity_score:.2f}"
